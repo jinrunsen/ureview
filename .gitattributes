@@ -1,0 +1,8 @@
+# 仓库里一律存 LF。不这么定的话，Windows 上 clone 出来再提交会把整个
+# 文件标成改动过。
+* text=auto eol=lf
+
+# 二进制资产不要被当文本处理
+*.png binary
+*.jpg binary
+*.webp binary

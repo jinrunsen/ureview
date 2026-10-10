@@ -1,0 +1,5 @@
+{
+  // 只编译要发布的代码。类型检查走 tsconfig.json，那份覆盖测试文件在内的全部 src。
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts", "src/**/test-support.ts"]
+}

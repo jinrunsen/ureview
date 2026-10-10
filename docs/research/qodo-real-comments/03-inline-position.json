@@ -1,0 +1,14 @@
+{
+  "path": "scripts/build-lib.js",
+  "line": 30,
+  "original_line": 30,
+  "start_line": 28,
+  "side": "RIGHT",
+  "start_side": "RIGHT",
+  "diff_hunk": "@@ -0,0 +1,49 @@\n+#!/usr/bin/env node\n+/**\n+ * Bundle lib modules that have npm dependencies.\n+ * Produces self-contained .cjs files in redpill/bin/lib/dist/ so the\n+ * installer can copy them without needing node_modules at the target.\n+ *\n+ * Source files in redpill/bin/lib/ remain unchanged for development.\n+ */\n+\n+const esbuild = require('esbuild');\n+const fs = require('fs');\n+const path = require('path');\n+\n+const LIB_DIR = path.join(__dirname, '..', 'redpill', 'bin', 'lib');\n+const DIST_DIR = path.join(LIB_DIR, 'dist');\n+\n+// Modules that import npm packages and need bundling.\n+// Modules with only Node.js built-in deps do NOT need bundling.\n+const MODULES_TO_BUNDLE = [\n+  'bdd.cjs',\n+];\n+\n+async function build() {\n+  fs.mkdirSync(DIST_DIR, { recursive: true });\n+\n+  for (const mod of MODULES_TO_BUNDLE) {\n+    const entry = path.join(LIB_DIR, mod);\n+    const outfile = path.join(DIST_DIR, mod);\n+\n+    await esbuild.build({",
+  "commit_id": "e1db3042e67368e9d83fb61a9ce4f82356ca3347",
+  "original_commit_id": "e1db3042e67368e9d83fb61a9ce4f82356ca3347",
+  "position": 30,
+  "original_position": 30,
+  "subject_type": "line"
+}

@@ -1,0 +1,21 @@
+.finding-disposition { margin-top: 22px; border-top: 1px solid var(--border); padding-top: 16px; }
+.disposition-summary, .disposition-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.disposition-summary { font-size: 12px; color: var(--muted); }
+.disposition-status, .comparison-badge { border-radius: 4px; padding: 2px 7px; background: #eff3f0; color: #4b6155; font-size: 12px; }
+.disposition-resolved { background: #e8f3ec; color: #286144; }
+.disposition-dismissed { background: #f2ede5; color: #77613d; }
+.disposition-explanation { flex-basis: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--foreground); }
+.disposition-actions { margin-top: 12px; }
+.disposition-form { display: grid; gap: 8px; margin-top: 16px; max-width: 580px; }
+.disposition-form label { font-size: 12px; color: var(--muted); }
+.disposition-form select, .disposition-form textarea { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; padding: 9px 11px; border: 1px solid var(--border); border-radius: 5px; color: var(--foreground); background: #fff; font: inherit; }
+.disposition-form textarea { resize: vertical; }
+.disposition-error { color: #a44239; overflow-wrap: anywhere; }
+.finding-comparison { margin-top: 14px; }
+.previous-disposition { margin-top: 10px; border-left: 2px solid #d7e1da; padding-left: 12px; }
+.previous-disposition > p { margin: 0 0 8px; font-size: 12px; }
+.absent-findings { margin: 22px 0; }
+.absent-findings h3 { margin: 0 0 8px; font-size: 15px; }
+.absent-finding + .absent-finding { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+.absent-finding p { overflow-wrap: anywhere; }
+.inline-finding .finding-disposition { text-align: left; }

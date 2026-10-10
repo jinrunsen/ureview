@@ -1,0 +1,28 @@
+.onboarding-checklist { margin-top: 24px; overflow: hidden; }
+.onboarding-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; }
+.onboarding-heading h2 { font-size: 15px; margin: 0; }
+.onboarding-heading p { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.onboarding-heading button { flex-shrink: 0; }
+.onboarding-steps { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--border); }
+.onboarding-step { display: flex; align-items: center; gap: 14px; padding: 16px 22px; }
+.onboarding-step + .onboarding-step { border-top: 1px solid var(--border); }
+.onboarding-step-marker { width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--muted); font-size: 12px; }
+.onboarding-step.is-complete .onboarding-step-marker { background: var(--accent-soft); border-color: #cce4d9; color: var(--accent); }
+.onboarding-step-content { min-width: 0; flex: 1; }
+.onboarding-step-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.onboarding-step-title strong { font-weight: 600; }
+.onboarding-step-status { color: var(--muted); font-size: 11px; }
+.onboarding-step.is-complete .onboarding-step-status { color: var(--accent); }
+.onboarding-step-content p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.onboarding-step-action { display: flex; align-items: center; gap: 5px; flex-shrink: 0; color: var(--accent); font-size: 12px; text-decoration: none; }
+.onboarding-step-action:hover { text-decoration: underline; }
+.onboarding-contact { max-width: 140px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.onboarding-checklist > .feedback { margin: 0 22px 18px; }
+.onboarding-loading { color: var(--muted); font-size: 13px; margin: 20px 22px; }
+@media (max-width: 600px) {
+  .onboarding-heading { padding: 16px; align-items: flex-start; }
+  .onboarding-step { padding: 16px; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+  .onboarding-step-content { flex-basis: calc(100% - 40px); }
+  .onboarding-step-action,.onboarding-contact { margin-left: 37px; }
+  .onboarding-contact { max-width: none; }
+}

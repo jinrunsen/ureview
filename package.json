@@ -1,0 +1,33 @@
+{
+  "name": "ureview",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p features/tsconfig.json --noEmit && tsc -p scripts/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:api": "cucumber-js --tags \"@layer:api and (@story:enterprise-sso or @story:rule-library-import or @story:repository-onboarding or @story:review-new-pull-request or @story:repository-rules or @story:drill-finding-code or @story:prioritize-findings or @story:review-rounds or @story:review-list or @story:team-identity or @story:review-collaboration or @story:rule-catalog or @story:managed-rules or @story:rule-sessions or @story:review-exclusions or @story:service-settings or @story:agent-sessions or @story:model-connections or @story:keep-review-results or @story:finding-disposition or @story:round-comparison or @story:repository-detail or @story:review-conclusion or @story:rule-hierarchy or @story:my-inbox or @story:lead-overview or @story:im-push or @story:rule-library or @story:rule-detail or @story:rule-proposals or @story:onboarding-and-health or (@story:reading-explains-implementation and not @status:pending))\"",
+    "test:watch": "vitest",
+    "migrate": "npm run migrate -w @ureview/server",
+    "check": "npm run check:notes && npm run check:scenarios && npm run check:rule-library && npm run check:staging",
+    "check:notes": "tsx scripts/verify-agent-notes.ts",
+    "check:scenarios": "tsx scripts/verify-scenario-coverage.ts",
+    "check:rule-library": "tsx scripts/verify-rule-library.ts",
+    "prepare": "lefthook install",
+    "check:staging": "tsx scripts/verify-staging-records.ts"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^13.2.1",
+    "@types/node": "^22.10.2",
+    "lefthook": "^2.1.14",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

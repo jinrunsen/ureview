@@ -1,0 +1,313 @@
+{
+  "id": "dpdk-data-plane",
+  "name": "DPDK 编码风格（数据面 C）",
+  "layer": "language",
+  "languages": [
+    "c"
+  ],
+  "sources": [
+    {
+      "id": "dpdk-coding-style",
+      "title": "DPDK Coding Style",
+      "author": "DPDK contributors",
+      "url": "https://doc.dpdk.org/guides/contributing/coding_style.html",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://raw.githubusercontent.com/DPDK/dpdk/main/doc/guides/contributing/coding_style.rst"
+    },
+    {
+      "id": "dpdk-efficient-code",
+      "title": "DPDK Programmer’s Guide：Writing Efficient Code",
+      "author": "Intel Corporation；DPDK contributors",
+      "url": "https://doc.dpdk.org/guides/prog_guide/writing_efficient_code.html",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://raw.githubusercontent.com/DPDK/dpdk/main/doc/guides/prog_guide/writing_efficient_code.rst"
+    },
+    {
+      "id": "dpdk-ring-library",
+      "title": "DPDK Programmer’s Guide：Ring Library",
+      "author": "Intel Corporation；DPDK contributors",
+      "url": "https://doc.dpdk.org/guides/prog_guide/ring_lib.html",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://raw.githubusercontent.com/DPDK/dpdk/main/doc/guides/prog_guide/ring_lib.rst"
+    },
+    {
+      "id": "dpdk-mempool-library",
+      "title": "DPDK Programmer’s Guide：Memory Pool Library",
+      "author": "Intel Corporation；DPDK contributors",
+      "url": "https://doc.dpdk.org/guides/prog_guide/mempool_lib.html",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://raw.githubusercontent.com/DPDK/dpdk/main/doc/guides/prog_guide/mempool_lib.rst"
+    },
+    {
+      "id": "dpdk-rcu-library",
+      "title": "DPDK Programmer’s Guide：Read-Copy-Update (RCU) Library",
+      "author": "DPDK contributors",
+      "url": "https://doc.dpdk.org/guides/prog_guide/rcu_lib.html",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://raw.githubusercontent.com/DPDK/dpdk/main/doc/guides/prog_guide/rcu_lib.rst"
+    },
+    {
+      "id": "dpdk-mempool-cache-24-11",
+      "title": "DPDK 24.11：mempool cache 初始化实现",
+      "author": "DPDK contributors",
+      "url": "https://github.com/DPDK/dpdk/blob/v24.11/lib/mempool/rte_mempool.c",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://raw.githubusercontent.com/DPDK/dpdk/v24.11/lib/mempool/rte_mempool.c"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "由 DPDK 项目发布的贡献指南与数据面编程指南。"
+    },
+    {
+      "kind": "adoption",
+      "explanation": "编码风格用于 DPDK 源码，ring 与 mempool 是其数据面基础设施。本集的 lcore（logical core）指 DPDK 编号的执行线程，通常绑定逻辑 CPU；socket 指 NUMA 内存节点，在常见机器上对应 CPU 插槽，socket_id 是节点编号。"
+    }
+  ],
+  "license": {
+    "tier": "open",
+    "attribution": "技术来源：DPDK contributors 与 Intel Corporation；所引文档标注 BSD-3-Clause，中文要点由 uReview 编写。",
+    "notice": "依据 DPDK 开放文档编写技术说明与示例。保留作者、文档链接与 BSD-3-Clause 许可出处；数据面性能建议需结合负载验证。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "dpdk-data-plane-branch-evidence",
+      "title": "likely / unlikely：只提示有依据的热路径",
+      "body": "likely 和 unlikely 是 rte_branch_prediction.h 定义的分支提示宏，在 GCC、Clang 中封装 __builtin_expect，向编译器说明条件通常为真或通常为假，帮助安排指令布局。它们适用于数据面中结果明显偏向一侧的热点分支；结果没有稳定倾向的条件应保留普通 if。",
+      "category": "performance",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "dpdk-coding-style",
+        "reference": "C Statement Style and Conventions／Branch Prediction"
+      },
+      "originalName": "Branch Prediction（分支预测）",
+      "check": "检查提示是否位于逐包热路径。错误处理、分配失败这类明显少见的分支可以使用 unlikely；其他分支的提示应在 PR 中给出测量或真实流量依据。",
+      "why": "错误的分支提示会让编译器按错误倾向安排代码，增加指令执行成本；无依据地添加还会干扰后续阅读。",
+      "fix": "依据已知约束或测量结果选择提示；没有稳定倾向时移除提示，确认性能后再添加。",
+      "badExample": "/* 两类端口流量接近，未测得明显偏向 */\nif (likely(packet->port == 0))\n    handle_port_zero(packet);",
+      "goodExample": "if (packet->port == 0)\n    handle_port_zero(packet);",
+      "exampleLanguage": "c",
+      "summary": "热路径的分支没有明确倾向却标了 likely / unlikely → 去掉提示，或用测量支持选择",
+      "judgement": true
+    },
+    {
+      "id": "dpdk-data-plane-ring-handoff",
+      "title": "rte_ring：批量传递 lcore 间的消息",
+      "body": "lcore（logical core）是 DPDK 编号的执行线程，通常绑定逻辑 CPU。lcore 间传递消息时可使用 rte_ring，它是 lockless（无锁）环形队列。批量操作把多个对象的同步开销合并，一次原子操作可协调一批对象的槽位预留；具体同步步骤取决于队列模式。批大小还要结合延迟要求选择，不必等到凑满一批才处理。",
+      "category": "performance",
+      "severity": "warning",
+      "source": {
+        "sourceId": "dpdk-efficient-code",
+        "reference": "Communication Between lcores"
+      },
+      "originalName": "Communication Between lcores（逻辑核间通信）",
+      "check": "检查跨 lcore 消息队列是否逐对象加锁，以及已有多条待处理消息时是否仍逐条调用队列接口。",
+      "why": "逐包锁竞争和重复的同步操作会限制吞吐量，核数增加时竞争还可能加重。",
+      "fix": "根据并发关系选择 rte_ring 模式；入队用 rte_ring_enqueue_burst，出队用 rte_ring_dequeue_burst，都按返回数量处理。未成功入队的对象仍由调用方重试或释放。",
+      "badExample": "for (unsigned int i = 0; i < count; ++i) {\n    pthread_mutex_lock(&lock);\n    queue_push(queue, objects[i]);\n    pthread_mutex_unlock(&lock);\n}",
+      "goodExample": "unsigned int sent = rte_ring_enqueue_burst(ring, objects, count, NULL);\nfor (unsigned int i = sent; i < count; ++i)\n    release_object(objects[i]);",
+      "exampleLanguage": "c",
+      "summary": "跨 lcore（DPDK 逻辑执行线程）消息逐个加锁交接 → 用 rte_ring 批量交接，并按实际成功数量处理",
+      "judgement": true
+    },
+    {
+      "id": "dpdk-data-plane-ring-sync-mode",
+      "title": "SP/SC 模式的 rte_ring：同一方向禁止并发调用",
+      "originalName": "Ring Library: Producer/Consumer Synchronization Modes（MP/MC、SP/SC）",
+      "body": "lcore（logical core）是 DPDK 编号的执行线程，通常绑定逻辑 CPU；普通 pthread 也可以调用 rte_ring。rte_ring 支持 multi-producer（MP）与 single-producer（SP）入队、multi-consumer（MC）与 single-consumer（SC）出队。SP/SC 要求对应方向的调用同一时刻只发生在一个线程上；多个线程经外部锁完整串行化调用也满足此前提，普通 pthread 同样计入。允许入队线程与出队线程同时工作。MP/MC 负责相应方向的多线程同步。创建时用 RING_F_SP_ENQ、RING_F_SC_DEQ 指定模式，也可用 rte_ring_sp_enqueue、rte_ring_mc_dequeue 等函数显式选择。示例的 socket_id 是 NUMA 内存节点编号。",
+      "check": "rte_ring_create 带 RING_F_SP_ENQ 或 RING_F_SC_DEQ，或调用 rte_ring_sp_*、rte_ring_sc_* 时，确认对应方向的调用同一时刻只发生在一个线程上，普通 pthread 也算；外部锁必须覆盖该方向的每个调用点。",
+      "why": "多个线程同时以 SP 模式入队，会覆盖槽位或破坏 ring 状态；SC 模式并发出队也可能重复领取对象。这类故障依赖并发时序，低负载测试可能看不到。",
+      "fix": "逐方向确认调用已串行化；存在并发入队就使用 MP，存在并发出队就使用 MC。去掉对应 SP/SC 创建标志后，还要把显式的 sp/sc 调用改成匹配的 mp/mc 或通用接口。",
+      "badExample": "struct rte_ring *r = rte_ring_create(\"rx_to_worker\", 1024, socket_id, RING_F_SP_ENQ);\n/* 多个 RX 线程可能同时执行 */\nrte_ring_enqueue(r, pkt);",
+      "goodExample": "/* 多个 RX 线程并发入队，只有一个 worker 线程出队：使用 MP/SC */\nstruct rte_ring *r = rte_ring_create(\"rx_to_worker\", 1024, socket_id, RING_F_SC_DEQ);\nif (r == NULL) return ERROR;\n/* 每个 RX 线程：处理未能交接的包 */\nif (rte_ring_enqueue(r, pkt) != 0)\n    rte_pktmbuf_free(pkt);\n/* 唯一 worker 线程：仅处理成功取得的对象 */\nif (rte_ring_dequeue(r, &obj) == 0)\n    process_object(obj);",
+      "exampleLanguage": "c",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "dpdk-ring-library",
+        "reference": "Producer/consumer synchronization modes／SP/SC、MP/MC"
+      },
+      "summary": "SP/SC 的对应方向被多个线程并发调用 → 保证该方向同一时刻只有一个调用，或改用 MP/MC"
+    },
+    {
+      "id": "dpdk-data-plane-per-lcore-statistics",
+      "title": "per-lcore：把逐包计数分给各个 lcore",
+      "body": "lcore（logical core）是 DPDK 编号的执行线程，通常绑定逻辑 CPU。多个 lcore 频繁写同一计数器会争用同一 cache line（缓存行）。RTE_PER_LCORE 访问的是 per-lcore variables（线程局部变量），只能取得本线程那份数据，汇总线程不能用这个宏直接读取其他 lcore 的值。需要跨核汇总时，用每核一项的结构体数组，每项按 cache line 对齐，见 false sharing 条目。运行期汇总需要对各项使用原子读写；relaxed 顺序足以保护独立计数，但汇总值由不同时刻的读取组成，不是同一时刻的一致快照。与 Locks 的区别：本条检查统计计数的写入和汇总；Locks 检查共享业务状态的所有权及同步。",
+      "category": "performance",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "dpdk-efficient-code",
+        "reference": "Memory／Concurrent Access to the Same Memory Area；Atomic Operations／Atomicity"
+      },
+      "originalName": "Concurrent Access to the Same Memory Area（同一内存区域的并发访问）",
+      "check": "检查逐包更新的全局计数器是否由多个核共同写入；每核统计是否可供汇总线程访问，运行期间汇总普通变量是否与 worker 写入并发。",
+      "why": "共享计数器需要原子 read-modify-write（读改写）操作或锁，缓存行也会在核间反复转移，使统计本身占用数据面处理时间。",
+      "fix": "每个 lcore 只写自己的缓存行对齐统计项。运行期间使用 relaxed 原子读写；每项只有一个写方，更新用 relaxed load 加 store，汇总线程只读。需要同一时刻的一致结果时另设同步协议。只有等待全部 worker 退出、确认写入已结束后汇总，才可使用普通变量读写。",
+      "badExample": "/* 每个 worker 都更新同一个计数器 */\natomic_fetch_add(&total_packets, 1);",
+      "goodExample": "struct counters {\n    _Atomic uint64_t packets;\n} __rte_cache_aligned;\nstatic struct counters stats[RTE_MAX_LCORE];\n\nvoid record_packet(void) {\n    struct counters *c = &stats[rte_lcore_id()];\n    /* 这一项只有本 lcore 写：relaxed load 加 store 即可 */\n    uint64_t n = atomic_load_explicit(&c->packets, memory_order_relaxed);\n    atomic_store_explicit(&c->packets, n + 1, memory_order_relaxed);\n}\n\nuint64_t read_packet_total(void) {\n    uint64_t total = 0;\n    /* 运行期无数据竞争；各项来自不同时刻 */\n    for (unsigned int i = 0; i < RTE_MAX_LCORE; ++i)\n        total += atomic_load_explicit(&stats[i].packets, memory_order_relaxed);\n    return total;\n}",
+      "exampleLanguage": "c",
+      "summary": "多个 lcore（DPDK 逻辑执行线程）频繁写同一统计量 → 每核数组独立计数，运行期用 relaxed 原子读写汇总",
+      "judgement": true
+    },
+    {
+      "id": "dpdk-data-plane-cache-line-isolation",
+      "title": "false sharing：让各核热点占独立缓存行",
+      "body": "lcore（logical core）是 DPDK 编号的执行线程，通常绑定逻辑 CPU。每个 lcore 拥有独立字段仍可能发生 false sharing（伪共享）：不同字段落在同一 cache line（缓存行）时，一个 lcore 的写操作会让其他 lcore 的缓存副本失效。按 lcore 保存的结构体数组需要 cache alignment（缓存行对齐）；共享的 read-mostly（读多写少）字段也应与频繁写入的字段放在不同 cache line。",
+      "category": "performance",
+      "severity": "warning",
+      "source": {
+        "sourceId": "dpdk-efficient-code",
+        "reference": "Memory／Concurrent Access to the Same Memory Area"
+      },
+      "originalName": "Concurrent Access to the Same Memory Area（同一内存区域的并发访问）",
+      "check": "检查 per-lcore 数组的元素大小和对齐方式，确认不同核写的字段不会落在同一缓存行。",
+      "why": "核之间反复使同一缓存行失效，即使没有逻辑上的数据共享也会产生大量缓存一致性通信。",
+      "fix": "使用 __rte_cache_aligned 等项目提供的对齐方式定义每核结构，并核对数组元素跨度。",
+      "badExample": "struct counters { uint64_t packets; };\nstruct counters stats[RTE_MAX_LCORE];",
+      "goodExample": "struct counters {\n    uint64_t packets;\n} __rte_cache_aligned;\nstruct counters stats[RTE_MAX_LCORE];",
+      "exampleLanguage": "c",
+      "summary": "不同 lcore（DPDK 逻辑执行线程）写的字段落在同一 cache line → 对齐每核结构，并隔离共享只读数据",
+      "judgement": true
+    },
+    {
+      "id": "dpdk-data-plane-pool-packets",
+      "title": "mempool：从预建池获取数据面对象",
+      "body": "数据面需要高频分配固定大小对象时，使用预先创建的 mempool（内存对象池）。malloc 类通用分配器需要管理碎片化堆，多线程分配也可能争用；mempool 提供对象对齐、bulk get/put（批量取还）和 per-lcore cache（每个 DPDK 逻辑执行线程的缓存）。它还允许选择 socket，即 NUMA 内存节点，在常见机器上对应 CPU 插槽。池中的对象会复用，取出后要建立本次使用的状态，并处理池耗尽。",
+      "category": "performance",
+      "severity": "warning",
+      "source": {
+        "sourceId": "dpdk-efficient-code",
+        "reference": "Memory／Memory Allocation"
+      },
+      "originalName": "Memory Allocation（内存分配）",
+      "check": "检查逐包路径中的 malloc、calloc 和 free，确认这些对象能否从固定大小的池中取得和归还。",
+      "why": "堆分配的开销和争用会进入每个包的处理时间，池耗尽后不检查结果还会使用无效对象。",
+      "fix": "初始化阶段创建池，热路径检查 rte_mempool_get 的返回值，使用完通过 rte_mempool_put 归还。",
+      "badExample": "struct job *job = calloc(1, sizeof(*job));\nif (job == NULL) return ERROR;\nprocess_job(job);\nfree(job);",
+      "goodExample": "void *object;\nif (rte_mempool_get(pool, &object) < 0) return ERROR;\nstruct job *job = object;\n*job = (struct job){0};\nprocess_job(job);\nrte_mempool_put(pool, job);",
+      "exampleLanguage": "c",
+      "summary": "数据面高频 malloc / free 固定大小对象 → 预建 mempool，检查取用结果并归还",
+      "judgement": true
+    },
+    {
+      "id": "dpdk-data-plane-hot-path-locks",
+      "title": "Locks：减少数据面逐包争用的锁",
+      "body": "lcore（logical core）是 DPDK 编号的执行线程，通常绑定逻辑 CPU。DPDK 建议减少逐包路径的锁操作，能独立持有的状态按 lcore 分配所有权。读多写少的共享数据可以评估 Read-Copy-Update（RCU），DPDK 的 rte_rcu_qsbr 库使用 QSBR（Quiescent State Based Reclamation）：写方发布新副本，等待所有读方经过 quiescent state（不再持有旧数据引用的静止状态），即宽限期（grace period）结束后，回收旧副本。QSBR 负责确认何时可以回收；发布新指针仍需原子操作及适当的内存顺序。与 per-lcore 统计的区别：本条检查共享业务状态的所有权及同步；统计条目检查计数及其汇总。",
+      "category": "performance",
+      "severity": "warning",
+      "source": {
+        "sourceId": "dpdk-efficient-code",
+        "reference": "Locks and Atomic Operations／Locks；DPDK 24.11 Read-Copy-Update (RCU) Library／RCU in DPDK、How to use this library（https://doc.dpdk.org/guides-24.11/prog_guide/rcu_lib.html）"
+      },
+      "originalName": "Locks（锁）",
+      "check": "检查每次收包或转发都要竞争的锁，以及临界区中的数据是否其实可以只由一个核更新。",
+      "why": "锁等待使本可并行的包处理串行化，原子同步和缓存行转移也会消耗处理时间。",
+      "fix": "按 lcore 所有权拆分可独立状态；读多写少的数据可用 RCU 发布不可变副本。示例的 QSBR、初始路由表及读线程注册在初始化时完成。读方进入非阻塞处理循环前 online，每轮放下全部旧引用后报告静止状态；退出或阻塞前 offline，阻塞返回后再 online。单一控制线程等待宽限期（grace period）结束后回收旧表。采用前验证生命周期并测量成本。",
+      "badExample": "/* 路由表只由控制线程偶尔更新，数据面逐包争用读锁 */\npthread_rwlock_rdlock(&routes_lock);\nforward_using(routes, packet);\npthread_rwlock_unlock(&routes_lock);",
+      "goodExample": "static _Atomic(struct route_table *) routes;\n/* qs 与初始路由表已初始化，每个读线程已注册 */\nvoid run_worker(void) {\n    unsigned int id = rte_lcore_id();\n    struct rte_mbuf *packets[BURST_SIZE];\n    rte_rcu_qsbr_thread_online(qs, id);\n    while (keep_running()) {\n        /* 循环中的收包和转发均为非阻塞调用 */\n        unsigned int n = receive_burst(packets, BURST_SIZE);\n        struct route_table *table = atomic_load_explicit(&routes, memory_order_acquire);\n        for (unsigned int i = 0; i < n; ++i)\n            forward_using(table, packets[i]);\n        /* 本轮结束，后续不再保留 table 的引用 */\n        rte_rcu_qsbr_quiescent(qs, id);\n    }\n    rte_rcu_qsbr_thread_offline(qs, id);\n    rte_rcu_qsbr_thread_unregister(qs, id);\n}\n\n/* 单一控制线程发布已完整初始化的不可变表 */\nvoid replace_routes(struct route_table *next) {\n    struct route_table *old = atomic_exchange_explicit(&routes, next, memory_order_acq_rel);\n    rte_rcu_qsbr_synchronize(qs, RTE_QSBR_THRID_INVALID);\n    free(old);\n}",
+      "exampleLanguage": "c",
+      "summary": "每个包处理都竞争共享锁 → 按 lcore（DPDK 逻辑执行线程）划分所有权；读多写少的数据评估 RCU（rte_rcu_qsbr）",
+      "judgement": true
+    },
+    {
+      "id": "dpdk-data-plane-burst-counts",
+      "title": "burst：按返回数量处理成功对象",
+      "body": "rte_ring 的 bulk 操作要求整批成功；burst 操作会尽量处理当前能容纳或取出的对象，并返回实际数量。调用 burst 入队后，只有前面返回数量的对象已交给消费者，剩余对象仍由调用方管理。出队同样只能处理实际取得的对象。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "dpdk-ring-library",
+        "reference": "Ring Library 概述／Bulk operations、Burst operations"
+      },
+      "originalName": "Bulk operations / Burst operations（批量与突发操作）",
+      "check": "检查 burst 调用后是否仍使用请求数量遍历，或把未成功入队的对象当成已转交而丢失。",
+      "why": "出队数量不足时会读到未初始化指针；未入队对象无人释放会泄漏，重复释放成功入队对象会破坏消费者使用的内存。",
+      "fix": "保存返回数量，只处理成功范围；按业务要求重试或释放未交接部分。",
+      "badExample": "rte_ring_dequeue_burst(ring, objects, 32, NULL);\nfor (unsigned int i = 0; i < 32; ++i)\n    process_object(objects[i]);",
+      "goodExample": "unsigned int count = rte_ring_dequeue_burst(ring, objects, 32, NULL);\nfor (unsigned int i = 0; i < count; ++i)\n    process_object(objects[i]);",
+      "exampleLanguage": "c",
+      "summary": "burst 可能部分成功却按请求数量处理 → 保存返回数量，只访问成功范围"
+    },
+    {
+      "id": "dpdk-data-plane-numa-placement",
+      "title": "NUMA：在工作 lcore 所在节点分配热数据",
+      "body": "NUMA（Non-Uniform Memory Access，非一致内存访问）系统中，lcore（DPDK 编号的执行线程，通常绑定逻辑 CPU）访问本地内存通常更快。DPDK 的 socket 指 NUMA 内存节点，在常见机器上对应 CPU 插槽；socket_id 是节点编号。ring、mempool、memzone 和 rte_malloc 接口允许选择内存所在的 socket。主要由某组 lcore 读写的热数据应优先放在它们所在的 socket。必要时可按 socket 复制数据；经常读取、极少修改的数据能进入各核 cache（缓存），通常可以共享一份。",
+      "category": "performance",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "dpdk-efficient-code",
+        "reference": "Memory／NUMA"
+      },
+      "originalName": "NUMA（非一致内存访问）",
+      "check": "检查创建池和环时传入的 socket_id，确认来自实际工作核，而非恰好执行初始化的主线程。",
+      "why": "工作核不断访问另一节点的内存，会增加访问延迟并占用节点间带宽。",
+      "fix": "根据工作核获取节点编号并创建资源；跨节点共享时结合访问方式和测量结果决定是否分节点建池。",
+      "badExample": "/* worker 位于 socket 1，初始化线程位于 socket 0 */\nstruct rte_ring *ring = rte_ring_create(\"jobs\", 1024, rte_socket_id(), 0);",
+      "goodExample": "int socket_id = rte_lcore_to_socket_id(worker_id);\nstruct rte_ring *ring = rte_ring_create(\"jobs\", 1024, socket_id, 0);",
+      "exampleLanguage": "c",
+      "summary": "热数据分在初始化线程所在的远端 socket（NUMA 内存节点） → 按工作 lcore（DPDK 逻辑执行线程）的节点创建资源",
+      "judgement": true
+    },
+    {
+      "id": "dpdk-data-plane-null-before-use",
+      "title": "NULL：显式比较指针是否为空",
+      "body": "DPDK 使用 NULL 表示空指针，指针判空要写成 pointer == NULL 或 pointer != NULL。通常无需给 NULL 强制转换类型；可变参数等编译器无法推导目标类型的场景才需要适当转换。! 用于布尔条件，字符零值则显式与 '\\0' 比较。示例中的 socket_id 是 NUMA 内存节点编号。",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "dpdk-coding-style",
+        "reference": "C Statement Style and Conventions／NULL Pointers"
+      },
+      "originalName": "NULL Pointers（空指针）",
+      "check": "检查 if (pointer)、if (!pointer) 和 (type *)0 等写法；确认判断对象是指针、布尔值还是字符。",
+      "why": "显式比较能直接说明判断的是指针是否为空，减少阅读时对数值零、字符串结束符和布尔值的混淆。",
+      "fix": "指针使用 == NULL 或 != NULL；保留原有的失败处理，按目标类型显式比较其他值。",
+      "badExample": "struct rte_ring *ring = rte_ring_create(\"jobs\", 1024, socket_id, 0);\nif (!ring) return ERROR;",
+      "goodExample": "struct rte_ring *ring = rte_ring_create(\"jobs\", 1024, socket_id, 0);\nif (ring == NULL) return ERROR;",
+      "exampleLanguage": "c",
+      "summary": "用 !pointer 隐式判断空指针 → 改用 pointer == NULL，并处理失败路径"
+    },
+    {
+      "id": "dpdk-data-plane-macro-block",
+      "category": "quality",
+      "severity": "warning",
+      "title": "Macros：让多语句宏按单条语句展开",
+      "originalName": "Macros（宏）",
+      "body": "DPDK 建议优先使用枚举和内联函数；确实需要宏时，表达式宏要有外层括号，多语句宏用 do/while 包成完整语句，结尾分号由调用方提供。DPDK 自身的公开宏用 RTE_ 前缀；应用代码用本项目的前缀，不要定义 RTE_ 开头的名称。与 C 的 Macros are not statements 的区别：C 条目检查多语句展开后的控制流语义；本条还检查 DPDK 项目中的公开宏前缀和命名空间。",
+      "check": "检查宏体是否有多条未包装的语句，是否缺少表达式括号，以及定义末尾是否带分号；应用自定义宏是否误占 RTE_ 命名空间。",
+      "why": "宏放进 if/else 后可能改变控制关系或无法编译，名称冲突还可能替换应用中的同名标识符。",
+      "fix": "简单操作改成 static inline 函数；保留多语句宏时加 do { ... } while (0)，在调用处写分号。应用宏使用自己的项目前缀，例如 APP_。",
+      "badExample": "#define APP_CLEAR_PAIR(pair) (pair)->left = 0; (pair)->right = 0\nif (reset) APP_CLEAR_PAIR(pair);",
+      "goodExample": "#define APP_CLEAR_PAIR(pair) do { \\\n    (pair)->left = 0; \\\n    (pair)->right = 0; \\\n} while (0)\nif (reset) APP_CLEAR_PAIR(pair);",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "dpdk-coding-style",
+        "reference": "C Preprocessor Directives／Macros"
+      },
+      "summary": "多语句宏没有完整语句边界 → 用 do/while 包装，或改用 inline 函数"
+    },
+    {
+      "id": "dpdk-data-plane-mempool-cache",
+      "category": "performance",
+      "severity": "recommendation",
+      "title": "mempool cache：启用每核缓存并预留容量",
+      "originalName": "Local Cache（本地缓存）",
+      "body": "mempool（内存对象池）可为每个 lcore（DPDK 编号的执行线程，通常绑定逻辑 CPU）维护 Local Cache（本地缓存），将对象取还的同步开销分摊到批次上。池容量按「业务同时持有的对象峰值 + 活跃 lcore 数 × 每核缓存上限 + 余量」估算。每核上限取决于 DPDK 版本：24.11 使用约 1.5 × cache_size 的 flush threshold（每核缓存回写公共池的阈值），缓存对象数可达到该阈值，回写时对象返回公共池；其他版本按对应实现核对，不能统一套用 1.5。cache_size 还受 RTE_MEMPOOL_CACHE_MAX_SIZE 等 API 条件约束。示例的 socket_id 是 NUMA 内存节点编号。",
+      "check": "检查多核频繁取还对象的池是否禁用了缓存；启用缓存时，核数、每核缓存量和业务同时持有量是否一并计入池容量。",
+      "why": "无缓存时每次取还都可能访问共享环；池太小时，部分核缓存着空闲对象，其他核却可能取对象失败。",
+      "fix": "按目标版本的缓存上限估算总容量，把全部活跃核缓存和在途对象计入，再为流量波动留余量。示例按 DPDK 24.11、4 个活跃核、cache_size 为 128、业务峰值 4096 计算：4096 + 4 × 128 × 1.5 = 4864，选择 8191 留出余量；缓存大小仍需通过测量确认收益。",
+      "badExample": "/* 4 个活跃核逐对象取还，业务峰值 4096，未启用本地缓存 */\npool = rte_mempool_create(\"jobs\", 8191, sizeof(struct job),\n    0 /* cache_size */, 0, NULL, NULL, NULL, NULL, socket_id, 0);",
+      "goodExample": "/* DPDK 24.11：4096 个在途对象 + 4 × 128 × 1.5 个缓存对象 = 4864 */\n/* 池大小 8191 包含上述需求及余量 */\npool = rte_mempool_create(\"jobs\", 8191, sizeof(struct job),\n    128 /* cache_size */, 0, NULL, NULL, NULL, NULL, socket_id, 0);\nif (pool == NULL) return ERROR;",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "dpdk-mempool-library",
+        "reference": "Local Cache；DPDK v24.11 lib/mempool/rte_mempool.c／CALC_CACHE_FLUSHTHRESH、mempool_cache_init（https://github.com/DPDK/dpdk/blob/v24.11/lib/mempool/rte_mempool.c）；rte_mempool.h／rte_mempool_do_generic_put（https://github.com/DPDK/dpdk/blob/v24.11/lib/mempool/rte_mempool.h）"
+      },
+      "summary": "多个 lcore（DPDK 逻辑执行线程）频繁访问 mempool 公共池 → 启用每核缓存，按版本的缓存上限及在途峰值预留容量",
+      "judgement": true
+    }
+  ],
+  "judgement": false
+}

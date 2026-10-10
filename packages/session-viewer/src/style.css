@@ -1,0 +1,22 @@
+html, body, #root { height: 100%; margin: 0; }
+body { color: #20332e; background: #fff; font-family: system-ui, sans-serif; }
+* { box-sizing: border-box; }
+.viewer { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.viewer-toolbar { display: flex; flex-shrink: 0; height: 48px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; border-bottom: 1px solid #e3ece8; background: #f8fbfa; }
+.viewer-toolbar nav { display: flex; gap: 6px; }
+.viewer-toolbar button { font: inherit; border: 1px solid transparent; border-radius: 7px; background: transparent; padding: 7px 13px; color: #576d64; cursor: pointer; }
+.viewer-toolbar button[aria-pressed="true"] { border-color: #d4e4dd; background: #eaf3ef; color: #185844; }
+.viewer-toolbar button:focus-visible { outline: 2px solid #3f9076; outline-offset: 2px; }
+.readonly-label { font-size: 12px; color: #698077; white-space: nowrap; }
+.official-view { flex: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.official-view[data-view="chat"] { width: 100%; max-width: 984px; margin-inline: auto; padding: 24px 32px; }
+.official-view > * { flex: 1; min-height: 0; }
+.boot-message, .access-error { padding: 24px; line-height: 1.6; }
+.access-error { color: #a53b34; }
+.connection-error, .loading-hint { margin: 0; padding: 9px 16px; background: #fff6e5; color: #77551e; font-size: 13px; }
+.loading-hint { color: #576d64; background: #f8fbfa; }
+@media (max-width: 500px) {
+  .viewer-toolbar { padding-inline: 8px; }
+  .viewer-toolbar button { padding: 7px 10px; }
+  .official-view[data-view="chat"] { padding: 16px; }
+}

@@ -1,0 +1,76 @@
+# 一条 docker compose up 起得来的最小部署。
+#
+# 两点说明：
+#   1. 三个卷都是具名卷，不是容器内临时层。worktrees 必须如此——代码检索会
+#      spawn 外部进程直接读盘，绕过运行时自己的文件系统抽象。
+#   2. 队列也在这个 PostgreSQL 里，不另起 Redis。
+
+# 固定项目名，卷名才不会跟着目录名变（README 里写的就是这几个名字）
+name: ureview
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ureview
+      POSTGRES_PASSWORD: ureview
+      POSTGRES_DB: ureview
+      UREVIEW_DATABASE_PASSWORD: ${UREVIEW_DATABASE_PASSWORD:-ureview}
+    ports:
+      # 暴露到宿主机是为了本地跑测试时能连上。生产部署可以去掉这一行。
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-application-db.sh:/docker-entrypoint-initdb.d/10-application-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ureview -d ureview"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  server:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    environment:
+      DATABASE_URL: postgres://ureview_app:${UREVIEW_DATABASE_PASSWORD:-ureview}@db:5432/ureview
+      UREVIEW_WORKTREE_DIR: /srv/worktrees
+      UREVIEW_BLOB_DIR: /srv/blobs
+      UREVIEW_PUBLIC_ORIGIN: ${UREVIEW_PUBLIC_ORIGIN:-http://localhost:3000}
+      UREVIEW_WEBHOOK_TOKEN: ${UREVIEW_WEBHOOK_TOKEN:-}
+      UREVIEW_ALLOW_SAME_VENDOR: ${UREVIEW_ALLOW_SAME_VENDOR:-false}
+      UREVIEW_REVIEW_CONCURRENCY: ${UREVIEW_REVIEW_CONCURRENCY:-5}
+      UREVIEW_GENERATOR_VENDOR: ${UREVIEW_GENERATOR_VENDOR:-}
+      UREVIEW_GENERATOR_PROVIDER: ${UREVIEW_GENERATOR_PROVIDER:-}
+      UREVIEW_GENERATOR_MODEL: ${UREVIEW_GENERATOR_MODEL:-}
+      UREVIEW_GENERATOR_API: ${UREVIEW_GENERATOR_API:-}
+      UREVIEW_GENERATOR_BASE_URL: ${UREVIEW_GENERATOR_BASE_URL:-}
+      UREVIEW_GENERATOR_API_KEY: ${UREVIEW_GENERATOR_API_KEY:-}
+      UREVIEW_GRADER_VENDOR: ${UREVIEW_GRADER_VENDOR:-}
+      UREVIEW_GRADER_PROVIDER: ${UREVIEW_GRADER_PROVIDER:-}
+      UREVIEW_GRADER_MODEL: ${UREVIEW_GRADER_MODEL:-}
+      UREVIEW_GRADER_API: ${UREVIEW_GRADER_API:-}
+      UREVIEW_GRADER_BASE_URL: ${UREVIEW_GRADER_BASE_URL:-}
+      UREVIEW_GRADER_API_KEY: ${UREVIEW_GRADER_API_KEY:-}
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      # 代码工作副本，见文件开头第 1 点。
+      - worktrees:/srv/worktrees
+      # 对象存储起步用本地卷，将来换 S3 兼容存储时这里退场。
+      - blobs:/srv/blobs
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  pgdata:
+  worktrees:
+  blobs:

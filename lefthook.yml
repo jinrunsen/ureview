@@ -1,0 +1,25 @@
+# git hooks（lefthook）。本地检查点要快，全量矩阵将来交给 CI。
+# 安装：`npm install` 时由 prepare 脚本自动跑 `lefthook install`。
+#
+# 绕过：`git commit --no-verify`。绕过是正当的——半截活想先存一下就该能存。
+
+pre-commit:
+  jobs:
+    - name: 场景文件结构
+      glob: "features/*.feature"
+      run: sh .claude/hooks/lint-feature.sh {staged_files}
+
+    - name: Agent Note 路径与文件头
+      glob: ".agents/notes/**/*.md"
+      run: npx tsx scripts/verify-agent-notes.ts
+
+    - name: 行尾空白与冲突标记
+      run: git diff --cached --check
+
+pre-push:
+  jobs:
+    - name: 类型检查
+      run: npm run typecheck
+
+    - name: 仓库闸门
+      run: npm run check

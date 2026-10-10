@@ -1,0 +1,25 @@
+.auth-page { max-width: 500px; padding-top: 70px; }
+.auth-panel { padding: 28px; margin-top: 25px; }
+.auth-panel h1 { font-size: 25px; margin-top: 0; }
+.auth-panel fieldset, .team-panel fieldset { display: grid; gap: 10px; }
+.auth-panel label, .team-panel label { margin-top: 8px; font-weight: 550; }
+.auth-panel input, .team-panel input, .team-panel select, .account-controls select { padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface, white); color: inherit; }
+.auth-panel button, .team-panel button { margin-top: 10px; }
+.account-controls { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.account-controls select { max-width: 160px; font-size: 12px; padding: 5px 8px; }
+.text-button { background: transparent; border: 0; color: inherit; cursor: pointer; padding: 4px; font: inherit; }
+.team-panel { padding: 24px; margin-bottom: 20px; }
+.team-panel h2 { margin-top: 0; }
+.team-table { width: 100%; border-collapse: collapse; text-align: left; }
+.team-table td, .team-table th { padding: 14px 10px; border-bottom: 1px solid var(--border); }
+.team-forms { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.team-panel .checkbox-label { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-weight: 400; }
+.team-panel .checkbox-label input { width: 16px; height: 16px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+@media(max-width: 900px) { .account-controls { flex-wrap: wrap; } .team-forms { grid-template-columns: 1fr; } .header-content { flex-wrap: wrap; height: auto; min-height: 64px; padding-block: 12px; } }
+
+.password-field { position: relative; }
+.auth-panel .password-field input { padding-right: 64px; }
+.auth-panel .password-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); margin: 0; color: var(--accent); }
+
+.service-model-fields { display: grid; gap: 16px; }

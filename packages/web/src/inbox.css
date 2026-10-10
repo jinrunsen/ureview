@@ -1,0 +1,29 @@
+.inbox-sections { display: grid; gap: 22px; margin-top: 24px; }
+.inbox-section > .dashboard-section-heading { padding: 19px 22px; border-bottom: 1px solid var(--border); }
+.inbox-section-count { margin-left: 10px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.inbox-list { list-style: none; margin: 0; padding: 0; }
+.inbox-list > li { padding: 20px 22px; }
+.inbox-list > li + li { border-top: 1px solid var(--border); }
+.inbox-review-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.inbox-review-heading > a { color: var(--foreground); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.inbox-review-heading > a:hover { color: var(--accent); text-decoration: underline; }
+.inbox-review-heading .status-badge { flex-shrink: 0; }
+.inbox-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; margin: 7px 0 12px; }
+.inbox-meta time { margin-left: 8px; }
+.inbox-reading { margin: 0 0 12px; line-height: 1.7; font-size: 13px; overflow-wrap: anywhere; }
+.inbox-review-footer { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; }
+.inbox-conclusion { color: var(--accent); }
+.inbox-conclusion-requires_changes,.inbox-conclusion-failed { color: var(--destructive); }
+.inbox-conclusion-manual_judgment { color: #80631b; }
+.inbox-empty { margin: 0; padding: 26px 22px; color: var(--muted); font-size: 13px; }
+.inbox-link-notice { margin-top: 24px; padding: 24px; border: 1px solid var(--border); border-radius: 10px; display: flex; gap: 16px; background: var(--accent-soft); }
+.inbox-link-notice > svg { flex-shrink: 0; color: var(--accent); }
+.inbox-link-notice h2 { font-size: 16px; margin: 0; }
+.inbox-link-notice p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.inbox-unread { background: #f6faf8; }
+.inbox-notification-heading { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+.inbox-notification-heading strong { font-size: 11px; color: var(--accent); margin-left: 8px; }
+.inbox-finding-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.inbox-comment { color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; margin-top: 0; }
+.inbox-read-button { margin-top: 4px; }
+@media (max-width: 600px) { .inbox-list > li,.inbox-section > .dashboard-section-heading { padding: 16px; } .inbox-review-heading { align-items: flex-start; } .inbox-meta time { margin-left: 0; width: 100%; } .inbox-link-notice { padding: 18px; } }

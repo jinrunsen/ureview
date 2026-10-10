@@ -1,0 +1,24 @@
+.finding-discussion { margin-top: 1rem; border-top: 1px solid var(--border,#e5e7eb); padding-top: .8rem; scroll-margin-top: 1rem; }
+.discussion-content { margin-top: 1rem; }
+.discussion-comments { padding: 0; margin: 0; list-style: none; max-height: 36rem; overflow: auto; }
+.discussion-comments > li, .platform-thread { padding: 1rem 0; border-bottom: 1px solid var(--border,#e5e7eb); }
+.discussion-comments .discussion-reply { margin-left: 1.5rem; padding-left: 1rem; border-left: 2px solid var(--border,#e5e7eb); }
+.discussion-meta { display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; font-size: .85rem; }
+.discussion-meta time { color: var(--muted-foreground,#71717a); }
+.discussion-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.discussion-form, .notification-settings form { display: grid; gap: .6rem; margin-top: 1rem; }
+.discussion-form textarea, .discussion-form select, .notification-settings input { width: 100%; box-sizing: border-box; border: 1px solid var(--border,#d4d4d8); border-radius: 5px; padding: .65rem; font: inherit; background: var(--background,#fff); color: inherit; }
+.discussion-form button[type=submit], .notification-settings button { justify-self: start; width: auto; }
+.discussion-mention-tags { display: flex; gap: .5rem; flex-wrap: wrap; }
+.discussion-mention-tags button { padding: .25rem .5rem; border: 1px solid var(--border,#ddd); background: transparent; border-radius: 4px; font: inherit; color: inherit; cursor: pointer; }
+.discussion-mentions { font-size: .8rem; color: var(--muted-foreground,#71717a); }
+.review-participation { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin: 1rem 0; border: 1px solid var(--border,#e5e7eb); border-radius: 6px; padding: 1rem; }
+.review-participation p { margin: .4rem 0 0; font-size: .85rem; }
+.review-participant-list { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .35rem; }
+.review-participant-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .8rem; font-size: .8rem; }
+.review-participant-list time { color: var(--muted-foreground,#71717a); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.unread-indicator { font-size: .8rem; color: var(--muted-foreground,#71717a); }
+.unread-active { color: var(--foreground,#18181b); }
+.unread-active strong { padding: .1rem .4rem; border-radius: 1rem; color: white; background: #27272a; }
+.platform-discussions { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border,#e5e7eb); border-radius: 6px; }
+.notification-settings { margin-top: 2rem; max-width: 48rem; }

@@ -1,0 +1,397 @@
+{
+  "id": "c-traps-and-pitfalls",
+  "name": "《C 陷阱与缺陷》",
+  "layer": "language",
+  "languages": [
+    "c"
+  ],
+  "sources": [
+    {
+      "id": "c-traps-and-pitfalls-book",
+      "title": "C Traps and Pitfalls（《C 陷阱与缺陷》）",
+      "author": "Andrew Koenig；Addison-Wesley Professional",
+      "url": "https://www.informit.com/store/c-traps-and-pitfalls-9780201179286",
+      "license": "图书版权，Copyright 1989"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "由 Addison-Wesley 出版，覆盖 C 的语义、链接、库函数及可移植性。"
+    },
+    {
+      "kind": "community",
+      "explanation": "新南威尔士大学的 C 课程参考书目收录该书。"
+    }
+  ],
+  "license": {
+    "tier": "copyrighted",
+    "attribution": "思想来源：Andrew Koenig《C Traps and Pitfalls》；中文要点由 uReview 编写。",
+    "notice": "条目按出版社公开目录中的陷阱定位，技术说明与示例由 uReview 编写；getchar 条目采用项目写作样板。图书未声明开放许可，公开发布前需审核。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "c-traps-and-pitfalls-assignment-condition",
+      "category": "correctness",
+      "severity": "error",
+      "title": "==：判断相等时使用双等号",
+      "originalName": "= is not ==（赋值与相等比较）",
+      "body": "赋值表达式会修改左边的变量，并把赋入的值作为表达式结果。写在 if 条件里的赋值通常也能通过编译：赋入零时条件为假，赋入非零时为真。因此比较是否相等必须使用 ==。",
+      "check": "检查条件中单独的 =，确认作者是要赋值还是比较；尤其检查把常量赋给变量的条件，如 if (status = READY)。",
+      "why": "条件会按赋入值决定分支，还会覆盖原有变量，使校验和后续处理都出错。",
+      "fix": "把比较改为 ==。确实需要在条件中赋值时，单独加括号并显式比较赋值结果。",
+      "badExample": "if (status = READY) {\n    start_job();\n}",
+      "goodExample": "if (status == READY) {\n    start_job();\n}",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 1 章，= is not =="
+      },
+      "summary": "条件误用赋值 = → 改用 ==；有意赋值时加括号并显式比较结果"
+    },
+    {
+      "id": "c-traps-and-pitfalls-logical-operators",
+      "category": "correctness",
+      "severity": "error",
+      "title": "&& / ||：组合真假条件时使用逻辑运算",
+      "originalName": "& and | are not && or ||（位运算与逻辑运算）",
+      "body": "逻辑与 &&、逻辑或 || 把操作数当作真假值，并在结果已确定时跳过右操作数。位与 &、位或 | 对整数的每一位运算，两个操作数都会求值。将位运算符写进条件可能同时改变结果与求值行为。",
+      "check": "检查条件中的 & 和 |，确认是否确实在检查位标志；看右侧是否依赖左侧已验证的指针或范围。",
+      "why": "位与不会在左侧为假时停止求值，可能仍然解引用空指针。两个非零整数的位与也可能等于零。",
+      "fix": "组合布尔条件时使用 && 或 ||，检查位掩码时保留位运算并显式与零比较。",
+      "badExample": "if ((item != NULL) & (item->ready != 0))\n    consume(item);",
+      "goodExample": "if (item != NULL && item->ready != 0)\n    consume(item);",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 1 章，& and | are not && or ||"
+      },
+      "summary": "用 & 或 | 组合真假条件 → 改用 && 或 ||，需要短路时先验证访问条件"
+    },
+    {
+      "id": "c-traps-and-pitfalls-decimal-constants",
+      "category": "correctness",
+      "severity": "error",
+      "title": "Integer constants：十进制常量不补前导零",
+      "originalName": "Integer constants（整数常量）",
+      "body": "C 中以 0 开头的整数常量按八进制解释，以 0x 开头的按十六进制解释。为对齐数字而补前导零会改变数值；八进制常量也不能包含数字 8 或 9。",
+      "check": "检查长度、超时和标识编号等常量是否为视觉对齐补了零，确认进制是否符合含义。",
+      "why": "例如 010 的值是十进制 8，阈值会小于代码阅读者预期，导致错误边界或超时。",
+      "fix": "十进制常量直接写十进制数字。需要其他进制时保留明确表示并让名称说明用途。",
+      "badExample": "const int max_retries = 010;",
+      "goodExample": "const int max_retries = 10;",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 1 章，Integer constants"
+      },
+      "summary": "十进制数补前导零后被解释成八进制 → 去掉用于对齐的前导零"
+    },
+    {
+      "id": "c-traps-and-pitfalls-character-literal",
+      "category": "correctness",
+      "severity": "error",
+      "title": "Strings and characters：单字符使用单引号",
+      "originalName": "Strings and characters（字符串与字符）",
+      "body": "单引号表示字符常量，双引号表示带终止零字节的字符串字面量。读取一个字符得到的整数值可以与字符常量比较；字符串作为数组使用，在大多数表达式中会转换成指向首元素的指针。",
+      "check": "检查字符与双引号字符串比较，以及将字符串地址误当成字符值的赋值。",
+      "why": "字符值和字符串地址不是同一种数据，比较可能被编译器拒绝或得到无意义结果。",
+      "fix": "单字符使用单引号；处理一段文本时使用有效字符数组或指针和合适的字符串函数。",
+      "badExample": "int ch = getchar();\nif (ch == \"q\") return;",
+      "goodExample": "int ch = getchar();\nif (ch == 'q') return;",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 1 章，Strings and characters"
+      },
+      "summary": "把字符值与双引号字符串比较 → 单字符改用单引号，文本按字符串处理"
+    },
+    {
+      "id": "c-traps-and-pitfalls-operator-precedence",
+      "category": "correctness",
+      "severity": "error",
+      "title": "Operator precedence：用括号分组位运算",
+      "originalName": "Operators don't always have the precedence you want（运算符优先级）",
+      "body": "C 的相等比较优先级高于位与。写 flags & MASK == 0 时，编译器先计算 MASK == 0，再拿这个真假值与 flags 做位与。混用位运算、比较和逻辑运算时，应按预期分组。",
+      "check": "检查没有括号的位运算与 ==、!= 组合，按 C 的实际优先级读一遍表达式。",
+      "why": "检查某一标志位的条件可能变成恒假或检查了错误的位，权限和状态分支会被绕过。",
+      "fix": "把位运算部分加括号，再与零或预期掩码比较。",
+      "badExample": "if (flags & READY_MASK == 0)\n    wait_for_ready();",
+      "goodExample": "if ((flags & READY_MASK) == 0)\n    wait_for_ready();",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 2 章，Operators don't always have the precedence you want"
+      },
+      "summary": "位运算与比较混写导致错误结合 → 给位运算加括号，再比较结果"
+    },
+    {
+      "id": "c-traps-and-pitfalls-empty-statement",
+      "category": "correctness",
+      "severity": "error",
+      "title": "Empty statement：删掉条件后误写的分号",
+      "originalName": "Watch those semicolons!（留意分号）",
+      "body": "分号本身就是一条空语句。if 或循环条件后立即出现分号时，受条件控制的语句已经结束；后面的花括号会成为另一个独立代码块。缩进不会改变这个解析结果。",
+      "check": "检查 if、while、for 的右括号后是否紧跟分号，尤其是下一行还有缩进代码块的位置。",
+      "why": "本应有条件执行的操作会每次执行；循环也可能空转，随后只执行一次原本预期的循环体。",
+      "fix": "删除意外的分号，并把需要受控制的语句放进紧随条件的花括号。",
+      "badExample": "if (count > 0); {\n    consume_first();\n}",
+      "goodExample": "if (count > 0) {\n    consume_first();\n}",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 2 章，Watch those semicolons!"
+      },
+      "summary": "if 或循环条件后的分号形成空语句 → 删除误写的分号，让代码块受条件控制"
+    },
+    {
+      "id": "c-traps-and-pitfalls-switch-fallthrough",
+      "category": "correctness",
+      "severity": "error",
+      "title": "switch：结束无需 fallthrough 的分支",
+      "originalName": "The switch statement（switch 语句）",
+      "body": "switch 的 case 标签只决定从哪里开始执行。进入一个分支后，程序会继续执行后面的语句，直到遇到 break、return 或 switch 结束；继续进入下一分支称为 fallthrough（贯穿）。相邻标签可以有意共用处理，但不能依赖缩进让执行自动停下。",
+      "check": "检查 case 末尾有没有结束当前分支的语句，以及 fallthrough 到下一分支是否符合处理意图。",
+      "why": "一种状态的处理会连带执行另一种状态的动作，例如启动后马上停止。",
+      "fix": "在独立分支末尾加 break 或 return；有意 fallthrough 时显式标注：C23 起用 [[fallthrough]];，更早的标准用 GCC 和 Clang 都支持的 __attribute__((fallthrough));，并确认下一分支可安全共用。开启 -Wimplicit-fallthrough 检查。/* fallthrough */ 注释可被 GCC 的默认检查级别识别，Clang 需要属性标注；GCC 的 -Wimplicit-fallthrough=5 也只接受属性。",
+      "badExample": "switch (command) {\ncase START: start_device();\ncase STOP: stop_device(); break;\n}",
+      "goodExample": "/* 独立动作在分支末尾结束 */\nswitch (command) {\ncase START: start_device(); break;\ncase STOP: stop_device(); break;\n}\n\n/* 重启需要先停止，再共用启动动作；C23 之前适用于 GCC 和 Clang */\nswitch (command) {\ncase RESTART:\n    stop_device();\n    __attribute__((fallthrough));\ncase START:\n    start_device();\n    break;\n}\n\n/* C23 起，有意贯穿的分支可使用标准属性 */\nswitch (command) {\ncase RESTART:\n    stop_device();\n    [[fallthrough]];\ncase START:\n    start_device();\n    break;\n}",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 2 章，The switch statement"
+      },
+      "summary": "case 执行完继续进入下一分支 → 用 break 或 return 结束，有意 fallthrough 时显式标注"
+    },
+    {
+      "id": "c-traps-and-pitfalls-array-length",
+      "title": "Array parameters：另外传入元素数量",
+      "body": "函数形参写成数组形式时会调整为指针参数。函数只收到首元素的地址，收不到调用方数组的总容量；在函数里对该参数使用 sizeof 得到的是指针大小，不能据此计算元素数。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 3 章，Array declarations as parameters"
+      },
+      "originalName": "Array declarations as parameters（作为参数的数组声明）",
+      "check": "检查数组形参上的 sizeof，以及没有长度参数却遍历数组的函数。",
+      "why": "算出的元素数随平台指针宽度变化，可能少处理数据或越过数组边界。",
+      "fix": "由仍然持有实际数组的调用方计算数量，作为独立参数传入；函数按这个数量遍历。",
+      "badExample": "void clear(int values[]) {\n    size_t count = sizeof(values) / sizeof(values[0]);\n    for (size_t i = 0; i < count; ++i) values[i] = 0;\n}",
+      "goodExample": "void clear(int *values, size_t count) {\n    for (size_t i = 0; i < count; ++i) values[i] = 0;\n}\n/* 调用方仍持有数组 */\nint values[8];\nclear(values, sizeof(values) / sizeof(values[0]));",
+      "exampleLanguage": "c",
+      "summary": "对数组形参用 sizeof 得到指针大小 → 调用方计算元素数量并单独传入"
+    },
+    {
+      "id": "c-traps-and-pitfalls-nullable-string",
+      "title": "NULL：读取字符串前先处理空指针",
+      "body": "空字符串是一个有效字符数组，其首字节为终止零字节；空指针表示没有可访问的对象。strlen、字符串复制等操作需要有效地址，传入 NULL 不会自动得到空字符串的行为。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 3 章，Null pointers are not null strings"
+      },
+      "originalName": "Null pointers are not null strings（空指针与空字符串）",
+      "check": "检查可选字段、查找失败结果等可能为 NULL 的指针，确认读取字符串前有缺失值处理。",
+      "why": "解引用 NULL 会产生 undefined behavior（未定义行为），可能使进程崩溃；某个平台偶然容忍这种访问也不能作为接口约定。",
+      "fix": "先决定缺失值应返回错误还是按空文本处理，再调用字符串函数；需要空字符串时使用有效的空字符串字面量。",
+      "badExample": "/* name 来自可选字段，未设置时为 NULL */\nsize_t name_length(const char *name) {\n    return strlen(name);\n}",
+      "goodExample": "/* name 来自可选字段，未设置时为 NULL */\nsize_t name_length(const char *name) {\n    return name == NULL ? 0 : strlen(name);\n}",
+      "exampleLanguage": "c",
+      "summary": "把 NULL 当作空字符串传给字符串函数 → 先处理缺失值或转换为有效空字符串"
+    },
+    {
+      "id": "c-traps-and-pitfalls-exclusive-upper-bound",
+      "category": "correctness",
+      "severity": "error",
+      "title": "Asymmetric bounds：循环上界用 < count",
+      "originalName": "Counting and asymmetric bounds（计数与不对称边界）",
+      "body": "Asymmetric bounds（不对称边界）用包含起点、不包含终点的区间（half-open interval）表示遍历，元素数等于终点减起点。含有 n 个元素的数组，其有效下标从 0 到 n−1。数组末尾之后的地址可作边界，但不能作为元素访问。",
+      "check": "检查从零开始却使用 <= count 的循环；对于指向首元素的指针 begin，检查是否访问了 begin + count 所指的位置。",
+      "why": "最后一次迭代会访问数组之外的内存，可能覆盖邻近状态或读取无关数据。",
+      "fix": "统一使用 i < count；需要首尾都包含的业务编号时，先转换成清楚的数组区间。",
+      "badExample": "for (size_t i = 0; i <= count; ++i)\n    total += values[i];",
+      "goodExample": "for (size_t i = 0; i < count; ++i)\n    total += values[i];",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 3 章，Counting and asymmetric bounds"
+      },
+      "summary": "从零起的循环使用 <= count → 改用 < count，保留不包含终点的区间"
+    },
+    {
+      "id": "c-traps-and-pitfalls-sequenced-effects",
+      "title": "Order of evaluation：拆开互相依赖的读写",
+      "body": "运算符优先级决定表达式怎样结合，不保证操作数从左到右求值。同一个表达式里修改一个变量，又在别处读取或再次修改它，且这些访问之间没有规定的先后关系（unsequenced），会产生 undefined behavior，例如 i = i++、a[i] = i++、f(i++, i)。sequence point（序列点）划定此前副作用已完成的边界：&&、|| 和逗号运算符先求左操作数，再求需要执行的右操作数；?: 先求条件，再求选中的分支，两步之间都有 sequence point。完整表达式结束时也有 sequence point。函数在全部实参求值后才被调用，实参之间没有规定先后；分隔实参的逗号不属于逗号运算符。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 3 章，Order of evaluation"
+      },
+      "originalName": "Order of evaluation（求值顺序）",
+      "check": "检查同一完整表达式里对同一变量的自增、自减、赋值及读取，尤其是不同函数实参之间的读写；确认这些访问是否有语言规定的先后关系。",
+      "why": "编译器优化或更换平台后，行为可能变化；undefined behavior 也不能用一次本地运行结果来预测。",
+      "fix": "先用独立语句保存需要的值并修改状态，再把保存的值用于计算或传参。",
+      "badExample": "print_pair(index++, index);",
+      "goodExample": "int first = index;\n++index;\nprint_pair(first, index);",
+      "exampleLanguage": "c",
+      "summary": "同一表达式无先后保证地读写同一变量 → 拆成独立语句确定求值顺序"
+    },
+    {
+      "id": "c-traps-and-pitfalls-overflow-before-arithmetic",
+      "title": "Integer overflow：运算前检查结果范围",
+      "body": "整数类型能表示的范围有限。有符号运算超出范围会产生 undefined behavior，无符号运算则按其范围回绕。先做运算再检查结果可能已经太晚，尤其是用结果决定分配大小或数组偏移时。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 3 章，Integer overflow"
+      },
+      "originalName": "Integer overflow（整数溢出）",
+      "check": "检查长度相加、元素数乘大小等表达式，确认范围检查发生在可能溢出的运算之前。",
+      "why": "分配大小回绕成较小的值后，按原始数量写入会越过已分配空间；有符号溢出的检测还可能被优化掉。",
+      "fix": "用类型上限做除法或减法形式的预检查，确认可表示后再进行乘法或加法。",
+      "badExample": "size_t bytes = count * sizeof(struct item);\nstruct item *items = malloc(bytes);",
+      "goodExample": "if (count > SIZE_MAX / sizeof(struct item)) return ERROR;\nsize_t bytes = count * sizeof(struct item);\nstruct item *items = malloc(bytes);",
+      "exampleLanguage": "c",
+      "summary": "整数先溢出再检查已失去保证 → 用上限的减法或除法预检，再执行运算"
+    },
+    {
+      "id": "c-traps-and-pitfalls-shared-declarations",
+      "title": "Header files：让定义和调用共享接口声明",
+      "body": "跨源文件使用的函数和对象，应在同一个头文件中声明，定义它们的源文件与使用它们的源文件都包含该头文件。分别手写声明可能产生类型不一致，而链接器通常只根据符号名连接。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 4 章，Header files"
+      },
+      "originalName": "Header files（头文件）",
+      "check": "检查源文件里手写的 extern 声明，确认是否存在共享头文件，定义方是否也包含它。",
+      "why": "调用方与定义方对参数、返回值或对象布局的理解不同，可能发生截断、错误传参或内存读取错误。",
+      "fix": "将完整函数原型和外部对象声明集中到接口头文件，两侧都包含它，让编译器核对一致性。",
+      "badExample": "/* reader.c */\nextern int read_counter(void);\n/* counter.c */\nlong read_counter(void) { return counter; }",
+      "goodExample": "/* counter.h */\nlong read_counter(void);\n/* reader.c 与 counter.c 都包含 */\n#include \"counter.h\"",
+      "exampleLanguage": "c",
+      "summary": "定义与调用方分别手写不一致的声明 → 把声明放入双方都包含的头文件"
+    },
+    {
+      "id": "c-traps-and-pitfalls-getchar-int",
+      "title": "getchar 返回值用 int 保存，再与 EOF 比较",
+      "originalName": "Getchar returns an integer（返回整数的 getchar 函数）",
+      "body": "getchar 返回 int：读到字符时返回该字符（按 unsigned char 取值后转成 int），到达文件末尾或出错时返回 EOF。EOF 是一个负数，与任何有效字符都不相等。只有用 int 保存返回值，才能同时容纳全部字符和 EOF。原书指出，把结果存进 char 的写法在某些编译器上碰巧能工作，这正是它危险的地方。",
+      "check": "保存 getchar、getc、fgetc 返回值的变量是不是 char；与 EOF 比较之前，返回值有没有先被截断成 char。",
+      "why": "char 是 unsigned 的平台上，变量永远不等于 EOF，循环停不下来；char 是 signed 的平台上，读到值为 0xFF 的字节会被当成 EOF，提前结束。同一份代码换个编译器或平台，行为就不同。",
+      "fix": "用 int 声明保存返回值的变量；确认不是 EOF 之后，需要时再转换成 char。",
+      "badExample": "char c;\nwhile ((c = getchar()) != EOF)\n    putchar(c);",
+      "goodExample": "int c;\nwhile ((c = getchar()) != EOF)\n    putchar(c);",
+      "exampleLanguage": "c",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 5.1 节，Getchar returns an integer（返回整数的 getchar 函数）"
+      },
+      "summary": "用 char 接收 getchar 的返回值 → 改用 int，确认不是 EOF 后再转成 char"
+    },
+    {
+      "id": "c-traps-and-pitfalls-errno-contract",
+      "title": "errno：按函数错误约定读取错误码",
+      "body": "errno 保存库函数报告的错误码，但成功调用通常不会把它清零。因此不能在调用后仅凭 errno 非零判定失败。先按函数的返回值约定判断错误；若正常结果与错误返回值可能相同，应按该函数约定在调用前清零 errno。",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 5 章，Using errno for error detection"
+      },
+      "originalName": "Using errno for error detection（用 errno 检测错误）",
+      "check": "检查调用前是否可能留下旧 errno，以及是否绕过函数返回值直接检查 errno。",
+      "why": "旧错误码会把成功操作误判成失败；忽略返回值也可能错过真正的失败。",
+      "fix": "先查该函数的错误约定。像 strtol 这样需要区分边界值的转换，先将 errno 设为零，再检查范围错误和结束位置。",
+      "badExample": "long value = strtol(text, &end, 10);\nif (errno != 0) return ERROR;",
+      "goodExample": "errno = 0;\nlong value = strtol(text, &end, 10);\nif (errno == ERANGE || end == text || *end != '\\0')\n    return ERROR;",
+      "exampleLanguage": "c",
+      "summary": "仅凭残留 errno 判断失败 → 先看返回约定，必要时调用前清零 errno"
+    },
+    {
+      "id": "c-traps-and-pitfalls-macro-evaluation",
+      "title": "Macros：先保存带副作用的实参",
+      "body": "函数式宏通过文本替换展开参数，某个参数在宏体中出现几次，就可能被求值几次。带自增、函数调用等副作用的实参会因此执行多次。宏体和参数还需要正确加括号，以免改变表达式结合顺序。",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 6 章，Macros are not functions"
+      },
+      "originalName": "Macros are not functions（宏不是函数）",
+      "check": "查看宏定义里每个参数出现的次数，再检查调用方是否传入自增或有副作用的函数。",
+      "why": "计数可能增加两次，输入可能被多读一次；复合实参缺少括号也会让计算结果错误。",
+      "fix": "可行时改用普通函数或内联函数；保留宏时先把带副作用的值保存到临时变量。",
+      "badExample": "#define MAX(a, b) ((a) > (b) ? (a) : (b))\nint next = MAX(index++, limit);",
+      "goodExample": "#define MAX(a, b) ((a) > (b) ? (a) : (b))\nint current = index++;\nint next = MAX(current, limit);",
+      "exampleLanguage": "c",
+      "summary": "宏重复展开带副作用的实参 → 先计算并保存实参，或改用函数"
+    },
+    {
+      "id": "c-traps-and-pitfalls-macro-statement",
+      "category": "correctness",
+      "severity": "error",
+      "title": "Macros：把多语句宏包进 do/while",
+      "originalName": "Macros are not statements（宏不是语句）",
+      "body": "宏展开得到的多条语句不会自动成为一个整体。把这种宏放在没有花括号的 if 分支中，只有第一条受条件控制。即使只用花括号包住宏体，调用处的分号也可能破坏紧随其后的 else。与 DPDK 的 Macros 条目的区别：本条检查多语句宏展开后的控制流语义；DPDK 条目还检查项目前缀和代码风格。",
+      "check": "检查多语句宏是否被 do { ... } while (0) 包住，以及宏定义末尾是否偷偷带有分号。",
+      "why": "部分动作会脱离条件执行，或使原本合法的 if/else 结构无法编译。",
+      "fix": "用 do/while 包装多语句宏，分号留给调用方；能表达为函数时优先使用函数。",
+      "badExample": "#define RESET(x) (x)->count = 0; (x)->ready = 0\nif (failed) RESET(state);",
+      "goodExample": "#define RESET(x) do { (x)->count = 0; (x)->ready = 0; } while (0)\nif (failed) RESET(state);",
+      "exampleLanguage": "c",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 6 章，Macros are not statements"
+      },
+      "summary": "多语句宏展开后脱离 if 的控制 → 用 do { ... } while (0) 包装，调用方写分号"
+    },
+    {
+      "id": "c-traps-and-pitfalls-safe-shifts",
+      "title": "Shift operators：先检查类型和移位位数",
+      "body": "移位的结果受左操作数的类型、符号和提升后位宽影响。移位量必须非负且小于该位宽；对负的有符号数右移存在实现差异，有符号左移还可能超出可表示范围。处理位标志时使用明确的无符号类型。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 7 章，Shift operators"
+      },
+      "originalName": "Shift operators（移位运算符）",
+      "check": "检查 1 << bit 等表达式中 1 的类型、bit 的范围，以及是否右移负的有符号值。",
+      "why": "移位量大于或等于左操作数提升后的位宽，或有符号左移结果超出允许范围，会触发 undefined behavior，位掩码在不同目标平台上可能失效。",
+      "fix": "为掩码选无符号类型，在移位前检查位数；示例明确采用 64 位无符号整数。",
+      "badExample": "uint64_t mask = 1 << bit;",
+      "goodExample": "if (bit < 0 || bit >= 64) return ERROR;\nuint64_t mask = UINT64_C(1) << bit;",
+      "exampleLanguage": "c",
+      "summary": "移位量越界或有符号移位不可移植 → 使用明确的 unsigned 类型并检查位数"
+    },
+    {
+      "id": "c-traps-and-pitfalls-ctype-domain",
+      "title": "ctype.h：char 先转 unsigned char 再传给 toupper、isalpha",
+      "body": "现代 ISO C 的 ctype.h 函数（如 toupper、tolower、isalpha）接受 EOF 或可表示为 unsigned char 的值。char 或 signed char 保存的字节可能为负，传参前先转成 unsigned char；getchar 返回的 int 已满足输入范围，可以直接传入，包括 EOF。原书的 Case conversion 还讨论了早期 C 库对大小写转换输入范围的不同约定。手写 c - 'a' + 'A' 依赖字符编码，须先确认输入为约定的 ASCII 小写字母；通用字符处理应使用 toupper。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "c-traps-and-pitfalls-book",
+        "reference": "第 7 章，Case conversion"
+      },
+      "originalName": "Case conversion（大小写转换）",
+      "check": "检查传给 ctype.h 函数的 char 或 signed char 实参是否先转成 unsigned char；检查手写 c - 'a' + 'A' 是否先限定 ASCII 小写字母范围，通用字符处理建议改用 toupper。",
+      "why": "ctype.h 收到 EOF 之外的负值会产生 undefined behavior，可能错误分类或越界访问；未经字母范围检查的算术转换会改坏标点或数字。",
+      "fix": "数组中的 char 或 signed char 先转成 unsigned char，再交给 ctype.h 函数。getchar 返回的 int 可直接传入，保留 EOF；用 toupper 替换依赖 ASCII 编码关系的手写转换。",
+      "badExample": "char byte = text[index];\nint upper = toupper(byte);",
+      "goodExample": "char byte = text[index];\nint upper = toupper((unsigned char)byte);",
+      "exampleLanguage": "c",
+      "summary": "把可能为负的 char 直接传给 toupper、isalpha 等 ctype.h 函数 → 先转成 unsigned char；getchar 返回的 int 可以直接传入"
+    }
+  ],
+  "judgement": false
+}

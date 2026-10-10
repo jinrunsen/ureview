@@ -1,0 +1,55 @@
+.instance-health { min-width: 0; }
+.instance-health .panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.instance-health .panel-heading button { flex-shrink: 0; }
+.instance-health-content { min-width: 0; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; }
+.instance-health-content > section { min-width: 0; }
+.instance-health-content .table-scroll { width: 100%; max-width: 100%; }
+.instance-health-content h3 { font-size: 14px; margin: 0 0 12px; }
+.health-caption { margin: 8px 0 12px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.health-models { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.health-model { min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 8px; }
+.health-model-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.health-model-heading h4 { font-size: 13px; margin: 0; }
+.health-model-name { overflow-wrap: anywhere; font-size: 13px; margin: 12px 0; }
+.health-model dl { margin: 0; display: grid; gap: 10px; }
+.health-model dl > div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; font-size: 12px; line-height: 1.6; }
+.health-model dt { color: var(--muted); }
+.health-model dd { margin: 0; overflow-wrap: anywhere; }
+.health-failure-code { display: block; margin-top: 3px; color: var(--destructive); }
+.health-queue { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0; }
+.health-queue > div { padding: 18px; border: 1px solid var(--border); border-radius: 8px; }
+.health-queue dt { color: var(--muted); font-size: 12px; }
+.health-queue dd { font-size: 24px; font-weight: 600; margin: 8px 0 0; }
+.health-empty { color: var(--muted); font-size: 13px; padding: 18px; border: 1px dashed var(--border); border-radius: 8px; margin: 0; }
+.health-failure-group { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.health-failure-group + .health-failure-group { margin-top: 10px; }
+.health-failure-group > summary { padding: 14px 18px; font-size: 13px; cursor: pointer; overflow-wrap: anywhere; }
+.health-failure-group > summary strong { margin-left: 10px; color: var(--destructive); font-size: 12px; }
+.health-failure-group[open] > summary { border-bottom: 1px solid var(--border); }
+.health-failure-reviews { list-style: none; padding: 0; margin: 0; }
+.health-failure-reviews > li { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.health-failure-reviews > li + li { border-top: 1px solid var(--border); }
+.health-failure-reviews p { font-size: 13px; margin: 0 0 5px; overflow-wrap: anywhere; }
+.health-failure-reviews .health-review-meta { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 0; }
+.health-failure-reviews a,.health-failure-reviews button { color: var(--accent); font-size: 12px; flex-shrink: 0; }
+.health-review-access { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+.health-metrics { min-width: 650px; width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+.health-metrics th,.health-metrics td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.health-metrics th { color: var(--muted); font-weight: 500; background: var(--surface-subtle, #fafbfc); white-space: nowrap; }
+.health-metrics td:first-child { overflow-wrap: anywhere; max-width: 300px; }
+.health-metrics .health-model-provider { display: block; color: var(--muted); margin-top: 4px; }
+.health-versions { margin: 0; display: flex; flex-wrap: wrap; gap: 12px 28px; }
+.health-versions > div { min-width: 140px; max-width: 100%; }
+.health-versions dt { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.health-versions dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.instance-health > .feedback,.instance-health > [role="status"] { margin: 20px 24px; }
+@media (max-width: 600px) {
+  .instance-health-content { padding: 18px 16px; }
+  .instance-health .panel-heading { padding: 16px; align-items: flex-start; }
+  .health-models { grid-template-columns: minmax(0, 1fr); }
+  .health-queue { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .health-queue > div { display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; gap: 16px; }
+  .health-queue dd { margin: 0; font-size: 20px; }
+  .health-failure-reviews > li { flex-wrap: wrap; gap: 8px; }
+  .health-failure-group > summary,.health-failure-reviews > li { padding: 14px; }
+}

@@ -1,0 +1,192 @@
+{
+  "id": "google-code-review",
+  "name": "Google 代码评审实践",
+  "layer": "general",
+  "languages": [],
+  "sources": [
+    {
+      "id": "google-engineering-practices",
+      "title": "Google Engineering Practices: What to look for in a code review",
+      "author": "Google",
+      "url": "https://google.github.io/eng-practices/review/reviewer/looking-for.html",
+      "license": "CC-BY-3.0",
+      "licenseUrl": "https://github.com/google/eng-practices/blob/master/LICENSE"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "由 Google 公开发布的工程实践文档，包含设计、功能、复杂度、测试与文档的评审要求。"
+    },
+    {
+      "kind": "adoption",
+      "explanation": "文档用于说明 Google 工程师开展代码评审时采用的实践。"
+    }
+  ],
+  "license": {
+    "tier": "open",
+    "attribution": "来源为 Google 的 Google Engineering Practices，原文按 CC-BY-3.0 发布。",
+    "notice": "条目由 uReview 按代码评审场景改写，原作者为 Google；原文与许可链接见来源字段。正文为 uReview 编写的中文要求，未作为 Google 原文发布。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "google-code-review-module-boundary",
+      "title": "Design：核对职责归属、模块协作与引入时机",
+      "originalName": "Design（设计）",
+      "summary": "新逻辑绕过接口或重复其他模块的职责 → 调整职责归属，让各部分通过明确接口协作",
+      "body": "检查变更的整体设计：各部分的职责是否清楚、通过什么接口协作，新增能力应属于当前代码库还是公共库，以及当前需求是否需要引入它。沿本次功能的调用路径，确认新逻辑放进承担该职责的模块，并能融入已有系统。与 YAGNI 的区别：本条看新能力放进哪个模块、通过什么接口协作；本次交付是否需要这项能力，两集同时启用时按 YAGNI 判断。",
+      "check": "检查页面或 HTTP 处理器是否直接实现另一个模块的业务规则；新组件是否重复已有能力或绕过公开接口，是否有本次交付需要的调用方。",
+      "why": "同一约束散落在多个入口后，修改时容易漏掉调用方，模块也难以独立使用。",
+      "fix": "把业务决定移到承担该职责的模块，通过公开方法组合组件；在 PR 描述里说明本次需求经过哪些模块。",
+      "badExample": "function submitOrder(order) {\n  // 运费规则由 shippingPolicy 模块负责，这里又实现了一遍\n  const fee = order.weight * regionRates[order.region];\n  orderStore.save({ ...order, fee });\n}",
+      "goodExample": "function submitOrder(order) {\n  const fee = shippingPolicy.calculate(order);\n  orderStore.save({ ...order, fee });\n}",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Design"
+      },
+      "judgement": true
+    },
+    {
+      "id": "google-code-review-boundary-inputs",
+      "title": "Functionality：核对边界和并发下的行为",
+      "originalName": "Functionality（功能）",
+      "summary": "功能只在正常输入下成立 → 推演边界、失败和并发路径，保证用户得到约定结果",
+      "body": "确认变更实现了作者的意图，而且这种行为适合最终用户和将来的调用者。沿输入、状态变化和返回结果推演空值、范围边界及失败分支。UI 变化要实际操作或观看演示；并发代码要分析不同执行顺序可能形成的 race condition 或 deadlock，一次运行成功不足以证明这些问题不存在。",
+      "check": "从入口追踪输入、返回值和副作用；检查空集合、范围端点、失败后状态，以及两个请求同时读写共享数据的顺序。",
+      "why": "正常输入看起来正确的功能，可能在重复点击时多扣一次库存，或在空数据时返回错误结果。",
+      "fix": "列出用户可观察的结果并逐条核对；把相关读写放进适当的原子操作或事务，为边界和失败路径明确行为。",
+      "badExample": "async function reserve(id) {\n  const stock = await readStock(id);\n  if (stock > 0) await writeStock(id, stock - 1);\n}",
+      "goodExample": "async function reserve(id) {\n  const changed = await db.execute(\n    \"UPDATE inventory SET stock = stock - 1 WHERE id = ? AND stock > 0\", [id]\n  );\n  return changed.rowCount === 1;\n}",
+      "exampleLanguage": "javascript",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Functionality"
+      }
+    },
+    {
+      "id": "google-code-review-needed-abstraction",
+      "title": "Complexity：简化难读代码和无当前用途的机制",
+      "originalName": "Complexity（复杂度）",
+      "summary": "简单功能夹着难懂表达式或未使用的扩展点 → 按当前需求简化代码并移除多余机制",
+      "body": "逐行、逐函数、逐类检查理解成本。阅读者应能较快说明代码如何工作，调用和修改时不易犯错。over-engineering 是常见问题：为了猜测未来需求而加入通用框架或额外能力，会增加当前维护成本。保留有当前行为支撑的结构，待新需求明确后再决定如何扩展。相邻规则同时启用时，按改动性质选用：当前功能多余的设计层次用 Rule of Simplicity；新增服务、部署单元、消息队列或大框架用 Rule of Parsimony；程序内部多余的字段、缓存和状态用 Occam’s Razor；本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality；表达式和函数内部的阅读难度用 Google Complexity。",
+      "check": "检查单行表达式是否要拆开才能读懂，例如多层嵌套三元、逻辑与位运算混写、长调用链；函数或类是否要反复回读才能说清行为；一项简单功能是否穿过多层工厂和注册表；新增配置、泛型或钩子是否有当前交付需要的调用方。相邻规则同时启用时，按正文的分工选择。",
+      "why": "难读的表达式容易让人看错条件的优先级和适用范围；多余机制增加调用跳转和测试组合，修改时更容易漏掉受影响的路径。",
+      "fix": "删去没有当前用途的机制；给复杂表达式命名，按有明确职责的步骤组织现有行为。",
+      "badExample": "const rate = user.vip ? (order.total > 1000 ? (coupon && !coupon.expired ? 0.7 : 0.8) : 0.9) : (coupon && !coupon.expired ? 0.95 : 1);",
+      "goodExample": "function discountRate(user, order, coupon) {\n  const hasValidCoupon = coupon && !coupon.expired;\n  if (!user.vip) {\n    if (hasValidCoupon) return 0.95;\n    return 1;\n  }\n  if (order.total > 1000) {\n    if (hasValidCoupon) return 0.7;\n    return 0.8;\n  }\n  return 0.9;\n}\nconst rate = discountRate(user, order, coupon);",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Complexity"
+      },
+      "judgement": true
+    },
+    {
+      "id": "google-code-review-regression-assertion",
+      "title": "Tests：让错误实现确实触发测试失败",
+      "originalName": "Tests（测试）",
+      "summary": "断言无法区分正确和错误实现 → 用独立预期结果验证行为，并选合适的测试层级",
+      "body": "根据变更选择合适的单元、集成或端到端测试，通常与实现一起提交。评审测试本身是否正确、断言是否简单有用、实现坏掉时是否会失败，以及正常重构时是否误报。测试也需要维护，复杂测试同样需要简化。",
+      "check": "检查预期值是否直接取自被测函数；故意推演一个错误实现，确认断言能发现差异；核对关键输入和测试层级。",
+      "why": "只断言函数能运行，或拿函数结果与自身比较，缺陷存在时测试仍会通过。",
+      "fix": "用可独立算出的输入和结果断言行为；缺陷修复使用原来能触发错误的样例，删除断言中的无关细节。",
+      "badExample": "const actual = discount(1000, 0.2);\nexpect(actual).toBe(discount(1000, 0.2));",
+      "goodExample": "expect(discount(1000, 0.2)).toBe(800);\nexpect(discount(0, 0.2)).toBe(0);",
+      "exampleLanguage": "javascript",
+      "category": "testability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Tests"
+      },
+      "judgement": true
+    },
+    {
+      "id": "google-code-review-side-effect-names",
+      "title": "Naming：用名称说清含义和主要行为",
+      "originalName": "Naming（命名）",
+      "summary": "名称含糊或隐瞒主要副作用 → 按业务含义和实际行为命名，保留必要的单位信息",
+      "body": "名称要足以表达对象是什么、操作做什么，同时保持易读。评审时应结合调用处判断名称是否准确：函数是否隐藏写入等主要行为，数值是否缺少单位，过长名称是否夹带了无需调用者知道的实现细节。",
+      "check": "只看调用处能否判断主要行为；不同含义的值是否共用 data、value 一类名称；名称与实际副作用是否一致。",
+      "why": "调用方以为函数只是取值，实际却提前扣减余额；含糊变量也容易被放错参数位置。",
+      "fix": "按业务含义重命名，在需要区分的名称中注明单位；让名称与主要行为一致。",
+      "badExample": "function getBalance(account) {\n  account.balance -= account.fee;\n  return account.balance;\n}",
+      "goodExample": "function deductFee(account) {\n  account.balance -= account.fee;\n  return account.balance;\n}",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Naming"
+      },
+      "judgement": true
+    },
+    {
+      "id": "google-code-review-explain-constraints",
+      "title": "Comments：注释解释代码背后的约束",
+      "originalName": "Comments（注释）",
+      "summary": "注释只复述代码或遗漏特殊处理的原因 → 改善代码表达，注释保留约束、依据和取舍",
+      "body": "检查注释是否必要、准确、易懂。通常应说明代码无法自行表达的原因；代码本身含糊时先改善命名和结构。正则表达式或复杂算法可以补充机制解释。还要核对旧注释与待办事项是否已过时；公开接口文档应说明用途、使用方式和行为。",
+      "check": "找只复述下一行代码的注释，以及没有说明依据的魔法值或特殊分支；变更是否使邻近注释失真。",
+      "why": "读者可能删除看似多余却用于兼容协议的处理，或相信已经过期的注释。",
+      "fix": "保留约束、取舍和外部依据；把代码能表达的含义写进命名，同步删除失效的注释。",
+      "badExample": "// 等待 100 毫秒\nawait delay(100);",
+      "goodExample": "// 设备固件要求复位后至少等待 100 毫秒才能接收命令。\nawait delay(100);",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Comments"
+      },
+      "judgement": true
+    },
+    {
+      "id": "google-code-review-style-guide",
+      "title": "Style：遵守风格约定，单独提交格式调整",
+      "originalName": "Style（风格）",
+      "summary": "功能变更混入大范围格式调整 → 按项目风格编写，将纯格式改动单独提交",
+      "body": "按项目采用的语言 style guide 检查代码。指南没有规定的个人偏好，评审时用 Nit: 标为可选建议，不能仅凭偏好阻止提交。大范围格式调整应和功能变化分开，便于识别行为变化并控制合并、回滚的范围。",
+      "check": "核对现有格式规则与新代码；一个修复是否同时重排整个文件，造成大量无行为变化的差异。",
+      "why": "无关格式噪声掩盖条件或常量变化，合并冲突与回滚范围也会扩大。",
+      "fix": "将纯格式调整放进独立变更；功能变更沿用项目格式，对指南未规定的偏好用 Nit: 标明可选建议。",
+      "badExample": "// 原代码：const retryLimit = 3;\n// 同一次修改还重排整个文件\nconst retry_limit=4;",
+      "goodExample": "// 只呈现当前功能变化，保留项目命名与格式\nconst retryLimit = 4;",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Style"
+      }
+    },
+    {
+      "id": "google-code-review-contract-documentation",
+      "title": "Documentation：使用方式变更时同步文档",
+      "originalName": "Documentation（文档）",
+      "summary": "命令、配置或接口已变，文档仍保留旧用法 → 同步相关说明和示例，删除失效内容",
+      "body": "影响用户构建、测试、交互或发布方式的改动，需要同步相应说明。文档应与代码提供的能力一致；新增、修改和删除能力都要核对文档。接口注释也应让调用者知道参数、结果和使用限制。",
+      "check": "修改命令行参数、配置名称、默认值或公开接口时，搜索 README、帮助文本和示例中的旧用法。",
+      "why": "用户照文档操作会使用失效参数，或误以为已经删除的能力仍可用。",
+      "fix": "更新与变化直接相关的说明及示例；删除已失效的入口，按文档中的步骤检查一次。",
+      "badExample": "/** 超时单位为秒。 */\nfunction connect(timeoutMs) {\n  return openConnection({ timeoutMs });\n}",
+      "goodExample": "/** timeoutMs 为超时毫秒数。 */\nfunction connect(timeoutMs) {\n  return openConnection({ timeoutMs });\n}",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "google-engineering-practices",
+        "reference": "Documentation"
+      }
+    }
+  ],
+  "judgement": false
+}

@@ -1,0 +1,274 @@
+{
+  "id": "go-guidelines",
+  "name": "Effective Go 与 Uber Go 风格指南",
+  "layer": "language",
+  "languages": [
+    "go"
+  ],
+  "sources": [
+    {
+      "id": "effective-go",
+      "title": "Effective Go",
+      "author": "The Go Authors",
+      "url": "https://go.dev/doc/effective_go",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://go.dev/copyright"
+    },
+    {
+      "id": "uber-go-guide",
+      "title": "Uber Go Style Guide",
+      "author": "Uber；Prashant Varanasi、Simon Newton 与贡献者",
+      "url": "https://github.com/uber-go/guide/blob/master/style.md",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/uber-go/guide/blob/master/LICENSE"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "Effective Go 由 Go 项目发布，Uber Go 风格指南由 Uber 的公开仓库维护。"
+    },
+    {
+      "kind": "adoption",
+      "explanation": "Uber 指南明确用于其 Go 代码，并以 Effective Go 为基础资料。"
+    }
+  ],
+  "license": {
+    "tier": "open",
+    "attribution": "Effective Go 归 The Go Authors，文档采用 CC-BY-4.0；Uber Go Style Guide 归 Uber 及贡献者，采用 Apache-2.0。",
+    "notice": "条目由 uReview 根据工程场景改写，正文与示例为 uReview 编写，未作为来源作者的原文发布。原文和许可链接按来源分别提供；Apache 2.0 许可全文随规范库分发。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "go-guidelines-check-errors",
+      "title": "error：先处理错误，再使用成功结果",
+      "originalName": "Errors（错误）",
+      "summary": "丢弃 error 后直接使用返回值 → 先处理失败，并按 API 契约决定能否使用部分结果",
+      "body": "Go 函数通常通过 error 返回失败原因。调用者应检查错误，再决定能否使用其他返回值；失败时可返回错误、恢复或按契约使用部分结果。错误应包含有助于定位问题的上下文，必要时用具体错误类型提供调用者需要的信息。",
+      "check": "查找丢弃 error 的下划线赋值，以及检查 err 之前使用文件、连接或解码结果的代码。",
+      "why": "文件打开失败时 file 为 nil，继续调用 io.ReadAll 会返回 os.ErrInvalid（invalid argument），原本文件不存在或无权访问的原因丢失；其他类型的 nil 值继续使用还可能 panic。",
+      "fix": "先判断 err；无法恢复就返回有上下文的错误。允许部分结果的 API 要按其契约处理。",
+      "badExample": "file, _ := os.Open(path)\nreturn io.ReadAll(file)",
+      "goodExample": "file, err := os.Open(path)\nif err != nil {\n\treturn nil, fmt.Errorf(\"打开配置 %s：%w\", path, err)\n}\ndefer file.Close()\nreturn io.ReadAll(file)",
+      "exampleLanguage": "go",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "effective-go",
+        "reference": "Errors"
+      }
+    },
+    {
+      "id": "go-guidelines-release-resources",
+      "title": "defer：取得资源后立即安排释放",
+      "originalName": "Defer（延迟调用）",
+      "summary": "提前返回绕过资源释放 → 成功获取后立即 defer；循环内需及时释放时提取单轮函数",
+      "body": "defer 会在所在函数返回时执行清理，多个延迟调用按后进先出执行；参数在声明 defer 时求值。资源成功取得后就安排清理，提前返回也能释放。循环中每轮要及时释放的资源，应把单轮工作放进函数，因为 defer 不会在循环迭代结束时运行。",
+      "check": "检查打开文件或加锁成功后是否马上有 defer；错误分支是否绕过清理；循环是否积累到函数退出才关闭的资源。",
+      "why": "某条提前返回路径可能泄漏文件句柄或锁；长循环中延迟关闭又可能耗尽资源。",
+      "fix": "在检查成功后写 defer；需要逐轮释放时提炼单次操作函数。关闭失败影响业务结果时也要处理关闭错误。",
+      "badExample": "file, err := os.Open(path)\nif err != nil { return err }\nif err := readHeader(file); err != nil { return err }\nfile.Close()\nreturn nil",
+      "goodExample": "file, err := os.Open(path)\nif err != nil { return err }\ndefer file.Close()\nreturn readHeader(file)",
+      "exampleLanguage": "go",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "effective-go",
+        "reference": "Functions / Defer"
+      }
+    },
+    {
+      "id": "go-guidelines-pointer-receiver",
+      "title": "Pointers vs. Values：修改字段用指针接收者",
+      "originalName": "Pointers vs. Values（指针与值）",
+      "summary": "值接收者修改字段只改到副本 → 改用指针接收者，并核对接口所需的方法集",
+      "body": "值接收者取得的是值的副本，给其字段赋值不会修改原对象；指针接收者可以修改原对象，也能避免复制较大的结构。method set（方法集）有区别：T 的方法集包含值接收者方法，*T 的方法集同时包含值接收者和指针接收者方法。若接口要求指针接收者方法，应传入 *T。可寻址的 T 变量调用方法时，编译器允许自动取地址；这不会改变 T 是否实现某个接口。",
+      "check": "检查方法是否更新接收者字段却声明为值接收者；把对象传入接口后，方法集是否仍满足要求。",
+      "why": "调用成功且没有报错，但修改只发生在副本上，原计数或状态保持不变。",
+      "fix": "将需要修改自身状态的方法声明为指针接收者，并在需要该方法的接口处传入指针。",
+      "badExample": "type Counter struct { Value int }\nfunc (c Counter) Increment() { c.Value++ }",
+      "goodExample": "type Counter struct { Value int }\nfunc (c *Counter) Increment() { c.Value++ }",
+      "exampleLanguage": "go",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "effective-go",
+        "reference": "Methods / Pointers vs. Values"
+      }
+    },
+    {
+      "id": "go-guidelines-bound-goroutines",
+      "title": "goroutine：取得并发名额后再启动任务",
+      "originalName": "Channels（通道）",
+      "summary": "先创建大量 goroutine 再等待并发名额 → 在 go 语句前获取名额，或使用固定 worker",
+      "body": "buffered channel 可以充当 semaphore（信号量），限制同时工作的 goroutine 数量。需要限制创建总数时，应先取得名额再执行 go；若在 goroutine 内才等待，突发输入仍会创建大量等待中的 goroutine。另一种写法是启动固定数量的 worker，让它们从任务 channel 取工作。",
+      "check": "看循环里的 go 语句之前是否取得执行名额；限制的是已经创建的 goroutine 总数，还是仅限制它们进入某段计算。",
+      "why": "每个等待中的 goroutine 仍占用栈和调度资源，任务突增可能耗尽内存。",
+      "fix": "把取得信号量的位置移到 go 语句前，任务结束时释放；有限批次结束后等待全部任务完成。",
+      "badExample": "limit := make(chan struct{}, 8)\nfor _, job := range jobs {\n\tgo func(job Job) {\n\t\tlimit <- struct{}{}\n\t\tdefer func() { <-limit }()\n\t\trun(job)\n\t}(job)\n}",
+      "goodExample": "limit := make(chan struct{}, 8)\nvar wg sync.WaitGroup\nfor _, job := range jobs {\n\tlimit <- struct{}{}\n\twg.Add(1)\n\tgo func(job Job) {\n\t\tdefer wg.Done()\n\t\tdefer func() { <-limit }()\n\t\trun(job)\n\t}(job)\n}\nwg.Wait()",
+      "exampleLanguage": "go",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "effective-go",
+        "reference": "Concurrency / Channels"
+      }
+    },
+    {
+      "id": "go-guidelines-checked-assertion",
+      "title": "Type Assertion：检查断言的 ok 返回值",
+      "originalName": "Handle Type Assertion Failures（处理类型断言失败）",
+      "summary": "单返回值 type assertion 遇到不匹配类型会 panic → 使用 comma ok 形式并处理失败",
+      "body": "单返回值 type assertion 在实际类型不匹配时会 panic。使用 value, ok := input.(T) 的 comma ok 形式，在 ok 为 false 时明确处理失败，再使用断言结果。类型不符合预期时，当前调用仍能按接口契约返回错误或恢复。",
+      "check": "检查 input.(T) 是否只接收一个结果；取得 ok 后是否真正处理了 false 分支。",
+      "why": "不符合预期的缓存值或插件返回值会使当前 goroutine 异常退出，可能连带终止进程。",
+      "fix": "使用双返回值断言；不匹配时返回具体错误，或走接口允许的替代路径。",
+      "badExample": "name := payload.(string)\nreturn name, nil",
+      "goodExample": "name, ok := payload.(string)\nif !ok {\n\treturn \"\", fmt.Errorf(\"名称类型错误：%T\", payload)\n}\nreturn name, nil",
+      "exampleLanguage": "go",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Handle Type Assertion Failures"
+      }
+    },
+    {
+      "id": "go-guidelines-copy-owned-collections",
+      "title": "slice / map：在所有权边界复制集合",
+      "originalName": "Copy Slices and Maps at Boundaries（在边界复制切片和映射）",
+      "summary": "模块直接保存或返回共享的 slice、map → 在所有权边界复制，避免外部绕过接口修改状态",
+      "body": "传入或返回 slice、map 时，赋值通常仍共享底层数据。模块需要独立维护集合时，应在接收或返回边界复制，避免外部修改内部状态。切片和映射的普通复制只复制元素；元素自身包含可变引用时，还需按所有权约定处理。",
+      "check": "检查构造函数是否直接保存传入 slice 或 map，以及访问器是否直接返回内部集合。",
+      "why": "调用者在锁外修改返回的 map，会绕过模块同步；修改传入切片也可能悄悄改变已创建对象。",
+      "fix": "为需要独立持有的集合分配存储并复制；对嵌套对象明确哪些共享、哪些需要继续复制。",
+      "badExample": "func NewBatch(ids []int) *Batch {\n\treturn &Batch{ids: ids}\n}",
+      "goodExample": "func NewBatch(ids []int) *Batch {\n\towned := append([]int(nil), ids...)\n\treturn &Batch{ids: owned}\n}",
+      "exampleLanguage": "go",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Copy Slices and Maps at Boundaries"
+      }
+    },
+    {
+      "id": "go-guidelines-goroutine-lifecycle",
+      "title": "goroutine：提供停止和等待退出的入口",
+      "originalName": "Don't fire-and-forget goroutines（管理协程生命周期）",
+      "summary": "后台 goroutine 没有停止或等待机制 → 提供退出信号，并等待它释放资源后结束",
+      "body": "每个 goroutine 都应有可预计的结束条件，或能够接收停止信号；两种情况都要能够等待它退出。长期后台任务应由一个明确的对象管理，在关闭时发出停止信号并等待完成。启动包时的 init 不应偷偷创建无法由调用者管理的后台任务。",
+      "check": "检查每条 go 调用的退出路径；停止操作是否只是发信号就返回，阻塞收发是否能响应停止。",
+      "why": "泄漏的 goroutine 会持续持有对象、连接和内存；调用者释放资源后，后台代码还可能继续访问它们。",
+      "fix": "用取消信号控制停止，用完成通道或 WaitGroup 等待退出；阻塞操作也要能结束。",
+      "badExample": "go func() {\n\tfor { process(<-jobs) }\n}()",
+      "goodExample": "ctx, cancel := context.WithCancel(parent)\ndone := make(chan struct{})\ngo func() {\n\tdefer close(done)\n\tfor {\n\t\tselect {\n\t\tcase <-ctx.Done(): return\n\t\tcase job, ok := <-jobs:\n\t\t\tif !ok { return }\n\t\t\tprocess(job) // 此操作会在有限时间内完成\n\t\t}\n\t}\n}()\n// 关闭时：发出停止信号并等待退出\ncancel()\n<-done",
+      "exampleLanguage": "go",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Don't fire-and-forget goroutines"
+      }
+    },
+    {
+      "id": "go-guidelines-wrap-cause",
+      "title": "Error Wrapping：保留调用者需要的原因",
+      "originalName": "Error Wrapping（错误包装）",
+      "summary": "调用者需要识别原因，包装却只保留文本 → 用 %w 保留错误链，通过 errors.Is / errors.As 判断",
+      "body": "没有新上下文时可原样返回错误。需要补充操作信息时，用 fmt.Errorf 包装：%w 允许调用者通过 errors.Is 或 errors.As 识别底层原因，%v 仅保留文本。是否暴露底层错误是接口决定；调用者依赖的错误类型应有文档和测试。",
+      "check": "检查返回错误是否只拼接 err.Error() 或使用 %v；上层是否还需要按原始错误决定重试、缺省值或提示。",
+      "why": "文本包装会切断错误链，调用者识别不到文件不存在等已约定的错误，可能走错恢复路径。",
+      "fix": "需要保留原因时使用 %w，加上简短操作上下文；上层用 errors.Is 或 errors.As 判断。",
+      "badExample": "if err != nil {\n\treturn fmt.Errorf(\"读取租户 %s：%v\", id, err)\n}",
+      "goodExample": "if err != nil {\n\treturn fmt.Errorf(\"读取租户 %s：%w\", id, err)\n}",
+      "exampleLanguage": "go",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Errors / Error Wrapping"
+      }
+    },
+    {
+      "id": "go-guidelines-report-once",
+      "title": "Handle Errors Once：只在处理错误的层记录",
+      "originalName": "Handle Errors Once（错误只处理一次）",
+      "summary": "每层都记录日志再返回同一个错误 → 传播层补上下文，由最终处理或恢复的层记录一次",
+      "body": "收到错误后，可以识别特定原因并恢复、转换为领域错误，或补充上下文继续返回。通常只处理一次：继续向上返回的层把必要信息放进错误，最终负责结束请求或降级的层再记录；已恢复的错误也可在恢复处记录。",
+      "check": "沿错误返回链查找每层 log 后又 return err 的路径；恢复分支是否仍把同一失败继续上报。",
+      "why": "一个请求失败产生多条相似日志，告警数量被放大，真正的处理位置难以辨认。",
+      "fix": "传播层只补上下文并返回；由请求边界记录一次，或在确实完成恢复的层记录。",
+      "badExample": "if err != nil {\n\tlog.Printf(\"读取配置：%v\", err)\n\treturn err\n}",
+      "goodExample": "if err != nil {\n\treturn fmt.Errorf(\"读取配置：%w\", err)\n}",
+      "exampleLanguage": "go",
+      "category": "observability",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Errors / Handle Errors Once"
+      },
+      "judgement": true
+    },
+    {
+      "id": "go-guidelines-serialization-contract",
+      "title": "Field Tags：显式声明序列化字段名",
+      "originalName": "Use field tags in marshaled structs（序列化结构体使用字段标签）",
+      "summary": "序列化字段名跟着 Go 标识符变化 → 用 field tag 固定协议名称，再重命名内部字段",
+      "body": "结构体用于 JSON、YAML 等支持标签的格式时，应给参与序列化的字段写相应标签。序列化后的字段名属于系统之间的契约，显式标签能让 Go 标识符重命名时继续保留协议名称。省略字段或不输出字段也应由标签明确表达。",
+      "check": "检查导出结构体字段是否依赖默认序列化名称；重命名字段时，标签和已有载荷是否仍一致。",
+      "why": "把 UserID 重命名为 AccountID 后，默认 JSON 键会随之变化，客户端可能读取不到身份字段。",
+      "fix": "写明 json、yaml 等标签；需要保留旧协议时让标签名称稳定，用载荷样例检查兼容性。",
+      "badExample": "// 协议要求 JSON 字段名为 userId。\ntype Session struct {\n\tAccountID string\n}",
+      "goodExample": "// 协议要求 JSON 字段名为 userId。\ntype Session struct {\n\tAccountID string `json:\"userId\"`\n}",
+      "exampleLanguage": "go",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Use field tags in marshaled structs"
+      }
+    },
+    {
+      "id": "go-guidelines-user-errors",
+      "title": "Don't Panic：把可处理的失败作为 error 返回",
+      "originalName": "Don't Panic（避免主动 panic）",
+      "summary": "常规输入或外部服务失败触发 panic → 返回 error，让调用者决定提示、重试或降级",
+      "body": "生产代码中的可处理失败应返回 error，让调用者选择提示、重试或降级。panic 与 recover 不适合作为日常错误处理方式。程序初始化阶段遇到必须中止的配置或固定模板错误，可以 panic，或使用 template.Must 这类 Must 函数；测试中用 t.Fatal、t.FailNow 报告失败。",
+      "check": "检查参数校验、文件读取、远程请求失败是否调用 panic；调用者是否因此失去处理失败的机会。",
+      "why": "一次无效输入就可能终止进程，使其他并发请求一起失败。",
+      "fix": "返回有意义的 error，交给调用边界处理；初始化阶段必须中止时可用 panic 或 template.Must，测试失败用 t.Fatal 或 t.FailNow。",
+      "badExample": "func parseLimit(text string) int {\n\tlimit, err := strconv.Atoi(text)\n\tif err != nil { panic(err) }\n\treturn limit\n}",
+      "goodExample": "func parseLimit(text string) (int, error) {\n\tlimit, err := strconv.Atoi(text)\n\tif err != nil { return 0, fmt.Errorf(\"解析条数：%w\", err) }\n\treturn limit, nil\n}",
+      "exampleLanguage": "go",
+      "category": "reliability",
+      "severity": "error",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Don't Panic"
+      }
+    },
+    {
+      "id": "go-guidelines-duration-types",
+      "title": "time：用专门类型表达时间点和时长",
+      "originalName": "Use \"time\" to handle time（用 time 包处理时间）",
+      "summary": "整数时间缺少单位或混淆日历与时长 → 使用 time.Time / time.Duration，并按目的选择运算",
+      "body": "时间点用 time.Time，时长用 time.Duration，并使用 time 包比较和计算。日历上的下一天与经过 24 小时可能不同，应按目的选择 AddDate 或 Add。外部协议无法使用时间类型时，在数值字段名中写明单位，时间点使用约定的格式。",
+      "check": "检查 timeout int、timestamp int 等参数是否缺少单位；一天的计算是否混淆日历变化与经过的时长。",
+      "why": "毫秒被当成秒会改变超时行为；存在夏令时变化时，加 24 小时不一定得到次日同一当地时间。",
+      "fix": "函数参数改为 time.Duration 或 time.Time；在协议边界转换单位，日历运算使用 AddDate。",
+      "badExample": "func waitRetry(delay int) {\n\ttime.Sleep(time.Duration(delay) * time.Millisecond)\n}\nwaitRetry(5)",
+      "goodExample": "func waitRetry(delay time.Duration) {\n\ttime.Sleep(delay)\n}\nwaitRetry(5 * time.Second)",
+      "exampleLanguage": "go",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "uber-go-guide",
+        "reference": "Guidelines / Use \"time\" to handle time"
+      }
+    }
+  ],
+  "judgement": false
+}

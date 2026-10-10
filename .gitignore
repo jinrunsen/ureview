@@ -1,0 +1,27 @@
+# 依赖与构建产物
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 本地环境
+.env
+.env.local
+
+# 运行期数据（compose 用的是具名卷，这里防的是有人改成 bind mount 之后误提交）
+data/
+
+# 参考素材，不属于项目
+qodo-web/
+
+# 系统文件
+.DS_Store
+
+# 本地实验、部署数据与运行日志
+/.scratch/
+
+# 内部认证参考资料
+docs/research/36-企业统一认证对接参考方案.md
+
+# 本地 Agent 资料与需求记录
+/.agents/
+/requirements/

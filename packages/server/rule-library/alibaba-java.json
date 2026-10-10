@@ -1,0 +1,265 @@
+{
+  "id": "alibaba-java",
+  "name": "阿里巴巴 Java 开发手册",
+  "layer": "language",
+  "languages": [
+    "java"
+  ],
+  "sources": [
+    {
+      "id": "alibaba-java-guidelines",
+      "title": "Alibaba Java Coding Guidelines（官方英文版）",
+      "author": "阿里巴巴技术团队",
+      "url": "https://alibaba.github.io/Alibaba-Java-Coding-Guidelines/",
+      "license": "手册正文按受版权保护处理；p3c 仓库标注 Apache-2.0"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "阿里巴巴技术团队发布的 Java 开发手册。"
+    },
+    {
+      "kind": "community",
+      "explanation": "官方 p3c 提供 PMD 规则实现与 IntelliJ IDEA、Eclipse 插件。"
+    }
+  ],
+  "license": {
+    "tier": "copyrighted",
+    "attribution": "思想来源：阿里巴巴技术团队的 Java 开发手册；中文要点由 uReview 编写。",
+    "notice": "仅收录自写要点及出处，不复制正文或近似逐句翻译。PDF 正文授权范围尚未核实，不将仓库 Apache-2.0 自动视为手册授权。出处条号按官方英文版。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "alibaba-java-boxed-values",
+      "title": "equals：用值相等方法比较包装类型",
+      "originalName": "Programming Specification / OOP Rules，第 7 条（强制）",
+      "summary": "用 == 比较 Integer 等包装对象的值 → 使用 equals，可能为 null 时用 Objects.equals",
+      "body": "Integer 等包装对象的值相等应通过 equals 判断。== 比较两个对象引用是否指向同一实例。Integer 的自动装箱和 Integer.valueOf 会复用 -128 到 127 的缓存对象（IntegerCache），这个范围内的 == 会碰巧相等；实现还可能扩大缓存范围。可能为空的值需要空值安全的比较方式，避免比较过程抛出空指针异常。",
+      "check": "检查 Integer、Long 等包装类型之间是否使用 == 或 != 比较业务值；不要只用缓存范围内的数字测试。",
+      "why": "两个值同为 1000 的 Integer 可能不是同一个对象，== 返回 false，导致权限、标识或数量比较失误。",
+      "fix": "使用 equals；任一侧可能为 null 时，用 Objects.equals 比较。",
+      "badExample": "Integer expected = 1000;\nInteger actual = Integer.valueOf(\"1000\");\nboolean matches = expected == actual;",
+      "goodExample": "Integer expected = 1000;\nInteger actual = Integer.valueOf(\"1000\");\nboolean matches = Objects.equals(expected, actual);",
+      "exampleLanguage": "java",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / OOP Rules，第 7 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-equals-hash",
+      "title": "equals / hashCode：同时实现一致的判等",
+      "originalName": "Programming Specification / Collection，第 1 条（强制）",
+      "summary": "重写 equals 却沿用原 hashCode → 用同一组字段实现两者，保证相等对象具有相同哈希值",
+      "body": "重写 equals 时必须一起重写 hashCode，保证 equals 相等的对象具有相同哈希值。自定义对象作为哈希集合元素或映射键时，要明确相等依据并落实这两个方法；相同哈希值不要求对象一定相等。",
+      "check": "检查只重写 equals 的类；放入 HashSet 或作为 HashMap 键的对象，其哈希值是否基于与 equals 一致的字段。",
+      "why": "集合先按哈希定位桶，再检查相等。相等对象的哈希不一致时，可能重复入集合，或无法用等值键取回数据。",
+      "fix": "使用同一组稳定字段实现 equals 和 hashCode；对象作为键存在期间，避免修改参与判等的字段。",
+      "badExample": "final class Key {\n  private final int id;\n  Key(int id) { this.id = id; }\n  public boolean equals(Object other) {\n    return other instanceof Key && id == ((Key) other).id;\n  }\n}",
+      "goodExample": "final class Key {\n  private final int id;\n  Key(int id) { this.id = id; }\n  @Override public boolean equals(Object other) {\n    return other instanceof Key && id == ((Key) other).id;\n  }\n  @Override public int hashCode() { return Integer.hashCode(id); }\n}",
+      "exampleLanguage": "java",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Collection，第 1 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-collection-removal",
+      "title": "Iterator：遍历时通过迭代器删除元素",
+      "originalName": "Programming Specification / Collection，第 9 条（强制）",
+      "summary": "foreach 遍历时直接增删原集合 → 用 Iterator.remove 删除当前元素，新增操作移出遍历",
+      "body": "foreach 遍历期间直接调用原集合的 add 或 remove，可能使遍历状态失效。按条件删除当前元素时，使用 Iterator 的 remove。并发访问同一集合时，还要采用一致的同步或适合该场景的并发集合；Iterator.remove 本身不保证并发安全。",
+      "check": "检查增强 for 循环内部是否调用被遍历集合的 add 或 remove；是否经另一引用做了同样的结构修改。",
+      "why": "集合被直接修改后，迭代器状态可能失效，抛出 ConcurrentModificationException 或漏处理元素。",
+      "fix": "用显式 Iterator 遍历，并在 next 后通过同一迭代器 remove；需要新增时可先收集，遍历结束后统一加入。",
+      "badExample": "for (String name : names) {\n  if (name.isEmpty()) names.remove(name);\n}",
+      "goodExample": "Iterator<String> iterator = names.iterator();\nwhile (iterator.hasNext()) {\n  if (iterator.next().isEmpty()) iterator.remove();\n}",
+      "exampleLanguage": "java",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Collection，第 9 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-comparator-order",
+      "title": "Comparator：处理相等并保持比较关系一致",
+      "originalName": "Programming Specification / Collection，第 10 条（强制）",
+      "summary": "Comparator 漏掉相等或破坏传递性 → 使用标准 compare 方法，并核对三条比较约定",
+      "body": "Comparator 要满足比较约定：交换两个参数时结果符号相反；大于关系具有传递性；两个值比较为零时，它们与任意第三个值比较的结果符号一致。比较函数必须处理相等情况，不能只返回正数或负数。",
+      "check": "检查比较器是否用 a > b ? 1 : -1 漏掉相等，或用相减造成溢出；推演相等值和三个不同值的比较。",
+      "why": "排序可能得到不一致结果，某些排序调用会以 IllegalArgumentException 报告比较器违反约定。",
+      "fix": "优先使用 Integer.compare、Long.compare 或 Comparator.comparing 等标准组合，并核对相等、极值和传递性。",
+      "badExample": "Comparator<Item> byRank =\n    (left, right) -> left.rank() > right.rank() ? 1 : -1;",
+      "goodExample": "Comparator<Item> byRank =\n    (left, right) -> Integer.compare(left.rank(), right.rank());",
+      "exampleLanguage": "java",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Collection，第 10 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-bounded-executor",
+      "title": "ThreadPoolExecutor：显式限制线程和队列",
+      "originalName": "Programming Specification / Concurrency，第 4 条（强制）",
+      "summary": "线程池采用容量极大的等待队列或线程上限 → 显式配置线程数、有界队列和拒绝策略",
+      "body": "按手册要求用 ThreadPoolExecutor 显式创建线程池，说明核心线程数、最大线程数、等待队列和拒绝策略。Executors 的一些工厂方法使用容量极大的队列或线程数上限；固定工作线程数量不等于限制了系统接收的任务总量。",
+      "check": "检查 Executors.newFixedThreadPool、newCachedThreadPool 等工厂调用；等待队列是否有容量，任务满时会拒绝、阻塞还是由调用方执行。",
+      "why": "处理速度跟不上提交速度时，无界队列持续占用内存；无限扩张线程数也可能耗尽资源。",
+      "fix": "选择有界队列，结合任务负载设置线程数和拒绝策略，并让提交方处理任务被拒绝的结果。",
+      "badExample": "ExecutorService pool = Executors.newFixedThreadPool(4);",
+      "goodExample": "ExecutorService pool = new ThreadPoolExecutor(\n    2, 4, 60, TimeUnit.SECONDS,\n    new ArrayBlockingQueue<>(100), workerFactory,\n    new ThreadPoolExecutor.AbortPolicy());",
+      "exampleLanguage": "java",
+      "category": "reliability",
+      "severity": "error",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Concurrency，第 4 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-formatter-confinement",
+      "title": "SimpleDateFormat：避免无保护地跨线程共享",
+      "originalName": "Programming Specification / Concurrency，第 5 条（强制）",
+      "summary": "多个线程共享 SimpleDateFormat → 改用 DateTimeFormatter，或隔离实例并提供同步保护",
+      "body": "SimpleDateFormat 是可变且非线程安全的格式化器，不应作为无同步保护的静态共享实例。确需共享时要同步，或让实例归属单个线程。使用 Java 8 及以上时，可选用线程安全的 DateTimeFormatter，并配合对应的时间类型。",
+      "check": "检查 static SimpleDateFormat，以及单例中被多个请求同时调用的格式器；final 只限制引用重新赋值，不能让实例变成线程安全。",
+      "why": "并发解析或格式化可能互相改写内部状态，产生错误日期或偶发异常。",
+      "fix": "改用 DateTimeFormatter；使用旧 API 时采用局部实例、正确同步或受控的线程私有实例。",
+      "badExample": "private static final SimpleDateFormat FORMAT =\n    new SimpleDateFormat(\"yyyy-MM-dd\");\nString format(Date value) { return FORMAT.format(value); }",
+      "goodExample": "private static final DateTimeFormatter FORMAT =\n    DateTimeFormatter.ofPattern(\"yyyy-MM-dd\");\nString format(LocalDate value) { return FORMAT.format(value); }",
+      "exampleLanguage": "java",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Concurrency，第 5 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-thread-local-cleanup",
+      "title": "ThreadLocal：用完后在 finally 中清理",
+      "originalName": "Programming Specification / Concurrency，第 6 条（强制）",
+      "summary": "线程池任务留下 ThreadLocal 值 → 在 finally 中 remove，避免后续任务读到残留上下文",
+      "body": "ThreadLocal 值随线程保存。在线程池中，同一线程会服务后续任务，因此当前业务使用完后必须调用 remove；把清理放在 finally 中，成功和异常路径都能执行。清理的是线程中保存的值，不能靠请求对象离开作用域代替。",
+      "check": "检查每个 ThreadLocal.set 是否有对应 finally 中的 remove；提前 return 和异常是否也经过清理。",
+      "why": "后续请求可能读到前一个用户的上下文；线程长期存活时，遗留对象也会持续占用内存。",
+      "fix": "将使用过程放入 try，在 finally 中调用 remove；线程池复用场景也验证异常后的下一次任务。",
+      "badExample": "tenantContext.set(tenantId);\nhandleRequest();",
+      "goodExample": "tenantContext.set(tenantId);\ntry {\n  handleRequest();\n} finally {\n  tenantContext.remove();\n}",
+      "exampleLanguage": "java",
+      "category": "reliability",
+      "severity": "error",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Concurrency，第 6 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-exception-outcome",
+      "title": "catch：明确处理异常或继续抛出",
+      "originalName": "Exception and Logs / Exception，第 4 条（强制）",
+      "summary": "catch 忽略异常后仍报告成功 → 恢复并给出明确结果，或保留原因向上抛出",
+      "body": "捕获异常后应采取有意义的处理，无法处理就继续抛出。最外层负责把失败转换成用户能理解的结果。空 catch、只打印后继续返回成功、用正常值掩盖失败，都可能让调用者误以为操作已经完成。",
+      "check": "查看 catch 块是否为空，或写入失败后仍返回 true、成功响应或默认空结果；上层是否有机会知道失败。",
+      "why": "支付、保存或通知没有完成，调用方却据成功结果继续执行，造成数据和用户认知不一致。",
+      "fix": "能恢复就明确恢复后的结果；不能恢复则保留原因并抛出，在接口边界转换为明确失败响应。",
+      "badExample": "boolean save(Order order) {\n  try { repository.save(order); }\n  catch (SQLException exception) { }\n  return true;\n}",
+      "goodExample": "void save(Order order) {\n  try { repository.save(order); }\n  catch (SQLException exception) {\n    throw new OrderSaveException(\"保存订单失败\", exception);\n  }\n}",
+      "exampleLanguage": "java",
+      "category": "reliability",
+      "severity": "error",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Exception and Logs / Exception，第 4 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-resource-lifetime",
+      "title": "try-with-resources：保证异常退出时关闭资源",
+      "originalName": "Exception and Logs / Exception，第 6 条（强制）",
+      "summary": "close 只在正常路径执行 → 用 try-with-resources 或 finally 覆盖异常出口，保留原始错误",
+      "body": "流、连接等可关闭资源必须覆盖异常出口。使用 finally 清理时，不要再由清理代码抛出异常覆盖原始失败；Java 7 及以上可使用 try-with-resources 自动关闭资源，它还能在已有异常时保留关闭产生的异常信息。",
+      "check": "检查 close 是否仅位于正常路径的末尾；获取多个资源时，后一个获取失败是否仍会关闭前一个。",
+      "why": "读取或写入抛异常后，后面的 close 不执行，文件句柄和连接就会泄漏；清理异常还可能掩盖真正原因。",
+      "fix": "对 AutoCloseable 使用 try-with-resources；必须手写 finally 时，分别处理清理失败并保留原始异常。",
+      "badExample": "InputStream stream = Files.newInputStream(path);\nbyte[] bytes = stream.readAllBytes();\nstream.close();\nreturn bytes;",
+      "goodExample": "try (InputStream stream = Files.newInputStream(path)) {\n  return stream.readAllBytes();\n}",
+      "exampleLanguage": "java",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Exception and Logs / Exception，第 6 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-finally-outcome",
+      "title": "finally：只做清理，不在其中 return",
+      "originalName": "Exception and Logs / Exception，第 7 条（强制）",
+      "summary": "finally 中 return 覆盖结果或吞掉异常 → 将返回留在业务路径，finally 只释放资源和复原状态",
+      "body": "finally 用于执行退出前的清理。若在 finally 中 return，会覆盖 try 或 catch 准备返回的值，也可能吞掉本应继续抛出的异常。结果应在正常业务路径决定，清理块只负责释放资源或复原状态。",
+      "check": "检查 finally 块及其分支是否出现 return，尤其是返回 false、null 或默认值的防御式写法。",
+      "why": "原本失败的操作会被 finally 的返回值伪装成成功；调用者也可能拿到与实际业务计算不同的结果。",
+      "fix": "删除 finally 中的 return，把业务返回值放到 try、catch 或整个结构之后；让原始异常正常传播。",
+      "badExample": "int load() {\n  try { return readCount(); }\n  finally { return 0; }\n}",
+      "goodExample": "int load() {\n  try { return readCount(); }\n  finally { clearTemporaryState(); }\n}",
+      "exampleLanguage": "java",
+      "category": "reliability",
+      "severity": "error",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Exception and Logs / Exception，第 7 条（强制）；官方英文版"
+      }
+    },
+    {
+      "id": "alibaba-java-iterate-entries",
+      "title": "entrySet：同时读取键和值时遍历键值对",
+      "originalName": "Programming Specification / Collection，第 12 条（推荐）",
+      "summary": "keySet 循环中又逐项调用 map.get → 遍历 entrySet 直接取得键值对，或使用 Map.forEach",
+      "body": "遍历 Map 并且同时需要键和值时，使用 entrySet 直接取得键值对，或使用支持键和值的 forEach。只需要键时可以使用 keySet，只需要值时可以使用 values；选择与实际读取内容对应的入口。",
+      "check": "检查 keySet 循环中是否紧接着为每个键调用 map.get，说明当前操作实际需要完整键值对。",
+      "why": "代码为每项重复查找值，增加查找开销，也让循环意图不够直接。",
+      "fix": "将循环改为 entrySet，从同一个 entry 取得键和值；Java 8 起也可使用 Map.forEach。",
+      "badExample": "for (String code : prices.keySet()) {\n  printPrice(code, prices.get(code));\n}",
+      "goodExample": "for (Map.Entry<String, Integer> entry : prices.entrySet()) {\n  printPrice(entry.getKey(), entry.getValue());\n}",
+      "exampleLanguage": "java",
+      "category": "performance",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Collection，第 12 条（推荐）；官方英文版"
+      },
+      "judgement": true
+    },
+    {
+      "id": "alibaba-java-countdown-completion",
+      "title": "CountDownLatch：任务退出前完成倒计时",
+      "originalName": "Programming Specification / Concurrency，第 12 条（推荐）",
+      "summary": "任务抛异常绕过 countDown，等待方无法结束 → 在 finally 中倒计时，并单独传递任务失败",
+      "body": "用 CountDownLatch 等待一组异步任务时，每个任务退出前都要执行 countDown。任务抛异常也必须完成计数，否则等待方无法知道该任务已经结束。计数归零只表示任务已结束，成功与失败仍应通过单独的结果或错误机制传递。",
+      "check": "检查 countDown 是否只在正常逻辑末尾；任务提前返回或抛异常后，await 是否还能解除等待。",
+      "why": "一个任务失败就可能让等待方永久阻塞，或等到超时才发现已经结束的工作。",
+      "fix": "把 countDown 放到任务的 finally 中，并明确记录或传递任务失败结果。",
+      "badExample": "try {\n  indexBatch();\n  latch.countDown();\n} catch (RuntimeException exception) {\n  failures.add(exception);\n}",
+      "goodExample": "try {\n  indexBatch();\n} catch (RuntimeException exception) {\n  failures.add(exception);\n} finally {\n  latch.countDown();\n}",
+      "exampleLanguage": "java",
+      "category": "reliability",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "alibaba-java-guidelines",
+        "reference": "Programming Specification / Concurrency，第 12 条（推荐）；官方英文版"
+      }
+    }
+  ],
+  "judgement": false
+}

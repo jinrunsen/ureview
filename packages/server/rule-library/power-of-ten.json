@@ -1,0 +1,226 @@
+{
+  "id": "power-of-ten",
+  "name": "NASA/JPL Power of Ten",
+  "layer": "language",
+  "languages": [
+    "c"
+  ],
+  "sources": [
+    {
+      "id": "power-of-ten-paper",
+      "title": "The Power of Ten — Rules for Developing Safety Critical Code",
+      "author": "Gerard J. Holzmann；NASA/JPL Laboratory for Reliable Software",
+      "url": "https://spinroot.com/gerard/pdf/P10.pdf",
+      "license": "论文版权；未声明开放许可"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "NASA/JPL 研究人员发表的安全关键 C 编码论文。本集适用于安全关键 C 代码，启用时应把规范作用域限定到承担安全关键职责的代码路径。"
+    },
+    {
+      "kind": "adoption",
+      "explanation": "论文记录了 JPL 在任务关键软件中的试用。"
+    }
+  ],
+  "license": {
+    "tier": "copyrighted",
+    "attribution": "思想来源：Gerard J. Holzmann 的 Power of Ten 论文；中文要点由 uReview 编写。",
+    "notice": "安全关键 C 的技术约束与自写评审示例，按原论文十条规则逐条定位。论文未声明开放许可，公开发布前需审核。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "power-of-ten-bounded-calls",
+      "title": "Rule 1：禁用递归、goto 等复杂跳转",
+      "body": "安全关键 C 代码只使用能直接跟踪的控制结构。禁止 goto、setjmp、longjmp，也禁止函数直接调用自己或经其他函数回到自己。提前返回可以使用；检查调用关系时要把间接递归也算进去。",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 1"
+      },
+      "originalName": "Rule 1（第 1 条）",
+      "check": "搜索跳转语句和递归调用；画出改动涉及的调用链，确认没有回到起点的路径。",
+      "why": "跳转和递归增加执行路径，递归还让栈空间上限难以确定，妨碍静态分析工具证明程序会在资源限制内结束。",
+      "fix": "用有界循环处理重复工作，用条件分支或提前返回处理失败；把递归依赖改为不会回到自身的调用关系。",
+      "badExample": "int count_nodes(const struct node *p) {\n    return p == NULL ? 0 : 1 + count_nodes(p->next);\n}",
+      "goodExample": "int count_nodes(const struct node *p) {\n    int count = 0;\n    for (; p != NULL && count < MAX_NODES; ++count)\n        p = p->next;\n    return p == NULL ? count : ERROR;\n}",
+      "exampleLanguage": "c",
+      "summary": "控制流包含 goto、setjmp、longjmp 或递归 → 改成简单分支与有界循环"
+    },
+    {
+      "id": "power-of-ten-bounded-loops",
+      "title": "Rule 2：给循环设置可静态证明的次数上限",
+      "body": "本条适用于安全关键 C 代码。会结束的循环必须有一个预先确定、静态分析工具能证明不会超过的迭代次数上限。依赖外部输入或链表结尾的循环也要受这个上限约束。调度器等设计上永不结束的循环属于例外，但应能证明它不会意外结束。",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 2"
+      },
+      "originalName": "Rule 2（第 2 条）",
+      "check": "检查 while、for 和重试循环：上限能否从代码直接推出，异常数据会不会让退出条件一直不成立。",
+      "why": "设备失联、链表成环或错误输入会把没有上限的循环变成永久等待，后续任务无法运行。",
+      "fix": "加入固定次数上限，达到上限时返回错误或执行明确恢复动作；给常驻循环说明其持续运行的职责。",
+      "badExample": "while (!device_ready()) {\n    poll_device();\n}",
+      "goodExample": "for (unsigned int i = 0; i < MAX_POLLS; ++i) {\n    if (device_ready()) return OK;\n    poll_device();\n}\nreturn TIMEOUT;",
+      "exampleLanguage": "c",
+      "summary": "循环退出次数无法静态证明 → 设置固定上限，超限时报告并恢复"
+    },
+    {
+      "id": "power-of-ten-fixed-memory",
+      "title": "Rule 3：初始化结束后禁止动态分配内存",
+      "body": "本条适用于安全关键 C 代码。程序进入正式运行阶段后，不再动态申请内存。所需堆空间应在初始化阶段准备好，运行时只使用已分配的固定存储和有界栈空间。检查范围包含被调用函数内部的分配行为。",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 3"
+      },
+      "originalName": "Rule 3（第 3 条）",
+      "check": "检查初始化之后的调用链是否出现 malloc、calloc、realloc 或内部会分配内存的封装。",
+      "why": "malloc 与回收机制的耗时和可用容量难以预测；分配与释放还可能出现泄漏、use-after-free 和越界。预分配固定存储有助于验证整个运行期的内存上限。",
+      "fix": "初始化时分配固定容量，运行时校验容量并复用；超出容量时返回可处理的错误。",
+      "badExample": "int handle_frame(size_t size) {\n    unsigned char *data = malloc(size);\n    if (data == NULL) return ERROR;\n    int status = encode_frame(data, size);\n    free(data);\n    return status;\n}",
+      "goodExample": "int handle_frame(unsigned char *data, size_t capacity, size_t size) {\n    if (data == NULL || size > capacity) return ERROR;\n    return encode_frame(data, size);\n}",
+      "exampleLanguage": "c",
+      "summary": "初始化之后仍动态分配内存 → 预先分配固定容量并在运行时复用"
+    },
+    {
+      "id": "power-of-ten-single-unit",
+      "title": "Rule 4：把函数控制在约六十行以内",
+      "body": "本条适用于安全关键 C 代码。按每条语句、每个声明各占一行的正常格式，一个函数应能放在一页纸上，通常约为 60 行。这个约束要求函数形成能单独理解和验证的逻辑单元，不能靠把多条语句挤到一行来满足。",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 4"
+      },
+      "originalName": "Rule 4（第 4 条）",
+      "check": "检查长函数的实际语句数，以及是否把解析、校验、存储等多个独立步骤都展开在一个函数里。",
+      "why": "理解一个函数需要反复跨页找状态和分支，容易遗漏前置条件与错误路径。",
+      "fix": "按有清楚输入和结果的任务提炼函数，让主函数呈现这些任务的调用顺序。",
+      "badExample": "int handle_message(const char *text) {\n    /* 第 2—25 行：解析消息字段 */\n    /* 第 26—48 行：校验字段及权限 */\n    /* 第 49—85 行：保存并通知 */\n    return OK;\n}",
+      "goodExample": "int handle_message(const char *text) {\n    struct message message;\n    if (parse_message(text, &message) != OK) return ERROR;\n    if (validate_message(&message) != OK) return ERROR;\n    return save_and_notify(&message);\n}",
+      "exampleLanguage": "c",
+      "summary": "正常排版的函数超过一页、约 60 行 → 按能独立验证的任务拆成短函数"
+    },
+    {
+      "id": "power-of-ten-pure-assertions",
+      "title": "Rule 5：用无副作用断言检查异常并处理失败",
+      "body": "本条适用于安全关键 C 代码。整个代码库平均每个函数至少有两个有意义的断言，用来检查正常运行时不应出现的情况。断言条件必须是没有副作用的布尔表达式，失败时采取明确恢复动作，例如返回错误。恒真或恒假的断言不能用来凑数。标准 assert() 失败时调用 abort() 终止程序，定义 NDEBUG 后整个检查被移除，单独使用它不能提供本条要求的明确恢复动作。可使用 c_assert 这类返回布尔值的宏，在调用处返回错误或执行约定恢复动作。",
+      "category": "correctness",
+      "severity": "error",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 5"
+      },
+      "originalName": "Rule 5（第 5 条）",
+      "check": "检查前置条件、后置条件和循环不变量是否有断言；断言里是否含自增、赋值或状态修改，失败后是否能继续使用坏数据。单独使用标准 assert() 是否缺少调用方可执行的恢复路径。",
+      "why": "把业务操作放进断言会让关闭断言后的行为改变；没有恢复动作则可能带着无效状态继续访问内存。",
+      "fix": "先单独执行状态修改，再断言其约束；使用会报告条件真假、允许调用方恢复的断言辅助函数，失败时返回错误。示例的 c_assert 负责记录失败并返回布尔值。",
+      "badExample": "int consume(struct queue *q) {\n    assert(q->count-- > 0);\n    return q->items[q->count];\n}",
+      "goodExample": "int consume(struct queue *q) {\n    if (!c_assert(q != NULL)) return ERROR;\n    if (!c_assert(q->count > 0 && q->count <= CAPACITY)) return ERROR;\n    --q->count;\n    return q->items[q->count];\n}",
+      "exampleLanguage": "c",
+      "summary": "断言不足、含副作用或失败后继续运行 → 平均每函数至少两个有效断言并处理失败"
+    },
+    {
+      "id": "power-of-ten-narrow-state",
+      "title": "Rule 6：在最小可用作用域内声明变量",
+      "body": "本条适用于安全关键 C 代码。变量和其他数据对象应声明在能满足用途的最小作用域中。只供一个代码块使用的临时值放在块内，只供一个函数使用的状态留在函数内，避免让无关代码能够修改它。",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 6"
+      },
+      "originalName": "Rule 6（第 6 条）",
+      "check": "检查全局变量和函数开头的临时变量，确认它们是否只在一个循环或分支中使用；检查同一变量是否被复用于无关含义。",
+      "why": "可写范围越大，出错时需要追查的赋值点越多，无关代码也更容易破坏状态。",
+      "fix": "把声明移到使用它的块或函数内，并为不同用途使用独立变量。",
+      "badExample": "unsigned int index;\nvoid clear_slots(void) {\n    for (index = 0; index < SLOT_COUNT; ++index)\n        slots[index] = 0;\n}",
+      "goodExample": "void clear_slots(void) {\n    for (unsigned int index = 0; index < SLOT_COUNT; ++index)\n        slots[index] = 0;\n}",
+      "exampleLanguage": "c",
+      "summary": "变量能被无关代码访问或复用 → 移入满足用途的最小作用域"
+    },
+    {
+      "id": "power-of-ten-checked-results",
+      "title": "Rule 7：检查函数参数与非 void 返回值",
+      "body": "本条适用于安全关键 C 代码。函数内部检查参数是否有效，调用方检查非 void 函数的返回值并处理失败。若成功和失败都不影响后续行为，可以显式转成 void 表明有意忽略；理由不明显时应说明。仅保存返回值而不检查其含义不能满足要求。",
+      "category": "reliability",
+      "severity": "error",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 7"
+      },
+      "originalName": "Rule 7（第 7 条）",
+      "check": "沿调用关系检查：被调函数在解引用或计算前是否验证参数，调用方是否处理返回的失败、短读或其他异常结果。",
+      "why": "无效参数可能引发越界；失败结果被忽略会使后续代码误以为操作成功。",
+      "fix": "在函数入口验证参数和范围，调用处按返回约定进入成功或错误路径；必要时向上层传递错误。",
+      "badExample": "int save(FILE *file, const char *text) {\n    fputs(text, file);\n    return OK;\n}",
+      "goodExample": "int save(FILE *file, const char *text) {\n    if (file == NULL || text == NULL) return ERROR;\n    if (fputs(text, file) == EOF) return ERROR;\n    return OK;\n}",
+      "exampleLanguage": "c",
+      "summary": "未检查函数参数或非 void 返回值 → 入口验证参数，调用处处理结果"
+    },
+    {
+      "id": "power-of-ten-simple-macros",
+      "title": "Rule 8：将预处理器限制为头文件和简单宏",
+      "body": "本条适用于安全关键 C 代码。preprocessor 用于包含头文件和定义简单宏，宏应展开成完整的语法单元。禁止 token pasting（##）、variadic macros 和递归宏调用。除 header guards 外，conditional compilation 应极少使用；原文认为即使大型项目也很少有理由超过一两处，每处都应由检查工具标出并在代码中说明理由。",
+      "category": "quality",
+      "severity": "warning",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 8"
+      },
+      "originalName": "Rule 8（第 8 条）",
+      "check": "检查 ##、可变参数、互相展开的宏，以及只有半个表达式或半个控制结构的宏；核对每个条件编译分支的用途。",
+      "why": "宏隐藏了编译器实际看到的代码；多个条件编译开关还会组合出大量需要分别验证的程序版本。",
+      "fix": "用普通函数表达行为，用简单常量宏表达固定值，保留有明确平台必要性的少量条件编译。",
+      "badExample": "#define CALL_HANDLER(kind, value) handle_##kind(value)\nCALL_HANDLER(packet, packet);",
+      "goodExample": "int status = handle_packet(packet);\nif (status != OK) return status;",
+      "exampleLanguage": "c",
+      "summary": "宏隐藏复杂语法或组合过多编译分支 → 只保留头文件包含和简单完整宏"
+    },
+    {
+      "id": "power-of-ten-visible-indirection",
+      "title": "Rule 9：限制指针解引用层级并禁用函数指针",
+      "body": "安全关键 C 代码最多允许一层 pointer dereference（指针解引用），按同一访问表达式中的解引用次数判断：**pp 是两层；p->a->b 在 a 为指针字段时也是两层；p->a.b 在 a 为内嵌结构体时只有一层。不在宏或 typedef 中隐藏指针解引用，也不使用 function pointer（函数指针）。数据结构应让地址访问可追踪，直接调用使工具能够构建调用图并检查递归。多级间接访问需要重新组织数据，不能靠宏或别名掩盖。",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 9"
+      },
+      "originalName": "Rule 9（第 9 条）",
+      "check": "检查访问表达式中的解引用次数，例如 **pp、指针字段构成的 p->a->b；检查藏在 typedef 或宏里的指针操作，以及回调表和函数指针调用。T ** 类型是追查访问路径的线索，仍需检查实际解引用表达式。",
+      "why": "多级指针增加数据来源追踪难度；函数指针使调用图不完整，妨碍工具证明不存在递归。",
+      "fix": "将多级结构改成固定数组与索引等可检查表示，直接调用已知函数，必要分派用明确的有限分支。",
+      "badExample": "/* hdr 是指针字段，这次访问有两层解引用 */\nsize_t frame_length(const struct message *message) {\n    return message->hdr->length;\n}\n\ntypedef int (*Handler)(int);\nint execute(Handler handler, int value) {\n    return handler(value);\n}",
+      "goodExample": "/* header 直接内嵌在消息中 */\nstruct message { struct header header; };\nsize_t frame_length(const struct message *message) {\n    return message->header.length;\n}\n\nint execute(enum operation operation, int value) {\n    switch (operation) {\n    case OP_ENCODE: return encode(value);\n    case OP_DECODE: return decode(value);\n    default: return ERROR;\n    }\n}",
+      "exampleLanguage": "c",
+      "summary": "指针多级解引用或函数指针隐藏调用关系 → 改成单级访问和显式函数调用"
+    },
+    {
+      "id": "power-of-ten-zero-warnings",
+      "category": "reliability",
+      "severity": "warning",
+      "title": "Rule 10：每天编译和静态分析并清零告警",
+      "originalName": "Rule 10（第 10 条）",
+      "body": "本条适用于安全关键 C 代码。从开发第一天起启用编译器最严格的告警设置，让全部代码无告警地编译。每天至少运行一种静态源码分析器，并清除其告警。即使认为告警是误报，也应把相关代码改写到工具能明确验证的形式。",
+      "check": "检查构建是否启用严格告警、是否忽略或压制诊断，以及日常检查是否包含静态源码分析。",
+      "why": "告警持续积累会掩盖新缺陷，未经核实的误报判断还可能放过真实的类型、边界或控制流错误。",
+      "fix": "将严格编译和静态分析加入日常检查，逐条定位原因并改写代码，使两种检查都没有未处理告警。示例使用 Clang，对应项目应选适合其工具链的检查器。",
+      "badExample": "clang -w -c control.c",
+      "goodExample": "clang -Wall -Wextra -Wpedantic -Werror -c control.c\nclang --analyze -Wall -Wextra -Wpedantic control.c",
+      "exampleLanguage": "bash",
+      "source": {
+        "sourceId": "power-of-ten-paper",
+        "reference": "The Power of Ten — Rules for Developing Safety Critical Code，Rule 10"
+      },
+      "summary": "编译和静态分析存在未处理告警 → 从开发首日启用严格检查并每天清零"
+    }
+  ],
+  "judgement": false
+}

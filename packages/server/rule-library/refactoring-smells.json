@@ -1,0 +1,395 @@
+{
+  "id": "refactoring-smells",
+  "name": "《重构》代码坏味道",
+  "layer": "general",
+  "languages": [],
+  "sources": [
+    {
+      "id": "refactoring-second-edition",
+      "title": "Refactoring: Improving the Design of Existing Code, 2nd Edition",
+      "author": "Martin Fowler；第 3 章与 Kent Beck 合作",
+      "url": "https://www.informit.com/articles/article.aspx?p=2952392",
+      "license": "书籍版权；出版社公开第 3 章，未授予自由再发布许可"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "由 Addison-Wesley 出版，第二版包含代码坏味道与重构目录。"
+    },
+    {
+      "kind": "longevity",
+      "explanation": "第一版于 1999 年出版，第二版于 2018 年出版，作者网站持续提供目录与勘误。"
+    }
+  ],
+  "license": {
+    "tier": "copyrighted",
+    "attribution": "书籍与坏味道命名归于 Martin Fowler、Kent Beck 及相应权利人；本集评审要点由 uReview 编写。",
+    "notice": "坏味道名称和章节出处用于定位原书；说明与示例由 uReview 编写，Feature Envy 采用规范库写作标准中的样板。书籍条目的公开发布处理见 README。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "refactoring-smells-domain-names",
+      "title": "Mysterious Name：把难懂的名称改成业务含义",
+      "originalName": "Mysterious Name（神秘命名）",
+      "body": "名称让人反复推算它保存什么或完成什么，是可能的 Mysterious Name。函数、字段、变量和类型都需要表达用途。可用 Change Function Declaration、Rename Variable、Rename Field 改名；若始终找不到准确名称，继续检查它是否混合了多个概念。",
+      "check": "检查 a、data、handle 等名称是否掩盖具体含义；同类型的多个参数能否仅凭名称区分。",
+      "why": "读者可能把税前金额当成实付金额，或在调换同类型参数时看不出错误。每次阅读都要重新推断含义。",
+      "fix": "按实际用途用 Rename Variable、Rename Field 或 Change Function Declaration 改名，并更新调用点；难以命名时先分清职责。",
+      "badExample": "const x = price * count;\nconst y = x * 0.9;",
+      "goodExample": "const subtotal = price * count;\nconst discountedTotal = subtotal * 0.9;",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Mysterious Name"
+      },
+      "summary": "名称藏住用途，可能的 Mysterious Name → 用 Rename Variable、Rename Field 或 Change Function Declaration 说清含义"
+    },
+    {
+      "id": "refactoring-smells-repeated-validation",
+      "title": "Duplicated Code：把同一逻辑的重复实现提成函数",
+      "originalName": "Duplicated Code（重复代码）",
+      "body": "相同逻辑结构出现在多处，是可能的 Duplicated Code。先确认它们表达同一规则，再用 Extract Function 提取共同部分。结构相似但顺序不同时，可先用 Slide Statements 把共同语句放到一起；同一继承体系的重复方法可用 Pull Up Method。",
+      "check": "找多处相同表达式、校验和处理步骤，核对它们是否需要随同一个业务决定一起变化。",
+      "why": "一处修复后另一处仍沿用旧逻辑，入口不同就可能得到不同结果；评审人也必须逐份核对差异。",
+      "fix": "用 Extract Function 提取共同逻辑，保留入口特有条件；必要时先用 Slide Statements 整理语句。子类共同方法可用 Pull Up Method。",
+      "badExample": "function webFee(weight) { return Math.max(500, weight * 20); }\nfunction batchFee(weight) { return Math.max(500, weight * 20); }",
+      "goodExample": "function shippingFee(weight) { return Math.max(500, weight * 20); }\nfunction webFee(weight) { return shippingFee(weight); }\nfunction batchFee(weight) { return shippingFee(weight); }",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Duplicated Code"
+      },
+      "summary": "同一逻辑结构在多处出现，可能的 Duplicated Code → 用 Extract Function 共用实现"
+    },
+    {
+      "id": "refactoring-smells-function-phases",
+      "title": "Long Function：把函数中能命名的步骤提炼出来",
+      "originalName": "Long Function（过长函数）",
+      "body": "一个函数展开多个步骤，需要逐段解释才能读懂，是可能的 Long Function。寻找条件、循环和段落注释，把能准确命名的步骤用 Extract Function 提取。判断依据是理解所需的上下文。临时变量和参数阻碍提取时，可用 Replace Temp with Query、Introduce Parameter Object；状态仍复杂时考虑 Replace Function with Command。",
+      "check": "检查函数是否要靠段落注释分隔多个阶段；各阶段之间是否共享较多临时变量，使修改一段时必须同时理解其他段。",
+      "why": "修改一个步骤时容易碰到其他步骤的局部状态，也难以为某段计算单独构造输入。",
+      "fix": "先用 Extract Function 提取有明确意图的步骤；用 Replace Temp with Query 减少临时变量，多个参数成组时用 Introduce Parameter Object。",
+      "badExample": "function invoice(order) {\n  // 逐项计算数量折扣和会员折扣\n  let subtotal = 0;\n  for (const item of order.items) {\n    const rate = item.quantity >= 10 ? 0.9 : 1;\n    subtotal += item.price * item.quantity * rate;\n  }\n  if (order.member) subtotal *= 0.95;\n  // 按地区税率和免税额计算税额\n  const taxRate = order.region === \"north\" ? 0.06 : 0.08;\n  const taxable = Math.max(0, subtotal - order.taxAllowance);\n  const tax = Math.round(taxable * taxRate);\n  // 生成发票文本、打印并保存\n  const total = subtotal + tax;\n  const text = [`订单 ${order.id}`, `小计 ${subtotal}`, `税额 ${tax}`, `合计 ${total}`].join(\"\\n\");\n  printer.print(text);\n  saveInvoice({ orderId: order.id, subtotal, tax, total, text });\n}",
+      "goodExample": "function invoice(order) {\n  const subtotal = discountedSubtotal(order.items, order.member);\n  const tax = taxFor(subtotal, order.region, order.taxAllowance);\n  const totals = { subtotal, tax, total: subtotal + tax };\n  const text = invoiceText(order.id, totals);\n  printer.print(text);\n  saveInvoice({ orderId: order.id, ...totals, text });\n}\n// 三段计算分别提取为 discountedSubtotal、taxFor 和 invoiceText",
+      "exampleLanguage": "javascript",
+      "category": "testability",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Long Function"
+      },
+      "summary": "函数展开多个难以概括的步骤，可能的 Long Function → 用 Extract Function 按意图拆开"
+    },
+    {
+      "id": "refactoring-smells-parameter-cohesion",
+      "title": "Long Parameter List：把相关参数收进完整对象",
+      "originalName": "Long Parameter List（过长参数列表）",
+      "body": "参数多到难以分辨顺序和有效组合，是可能的 Long Parameter List。可从其他参数取得的值用 Replace Parameter with Query 消除；来自同一对象的值用 Preserve Whole Object；表达共同概念的参数用 Introduce Parameter Object。标记参数控制不同动作时可用 Remove Flag Argument，多个函数共享参数时可用 Combine Functions into Class。",
+      "check": "检查调用是否连续传入许多同类型值，或先从一个对象取出多个字段再逐一传入。",
+      "why": "调用者容易把起止时间或价格顺序传反，还可能传入彼此矛盾的字段组合。",
+      "fix": "从已有对象取出的多个值用 Preserve Whole Object；独立参数成组出现时用 Introduce Parameter Object，并删除可由其他参数查询得到的值。",
+      "badExample": "reserve(userId, roomId, dates.start, dates.end, dates.timeZone);",
+      "goodExample": "reserve(userId, roomId, dates);",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Long Parameter List"
+      },
+      "summary": "多个参数难以记住顺序和关系，可能的 Long Parameter List → 用 Preserve Whole Object 或 Introduce Parameter Object"
+    },
+    {
+      "id": "refactoring-smells-global-state",
+      "title": "Global Data：封装可变全局数据并缩小作用范围",
+      "originalName": "Global Data（全局数据）",
+      "body": "全局变量、可变静态字段或单例状态能被许多模块修改，是可能的 Global Data。出错时很难从读值的位置追踪是谁改动了它。先用 Encapsulate Variable 把访问集中到函数，再移入所属模块并缩小可见范围。初始化后保持不变的数据风险较小。",
+      "check": "搜索对导出对象、静态字段、单例属性的直接赋值，确认能否列出全部修改入口和有效范围。",
+      "why": "一个模块的赋值可能改变另一个模块的结果，故障现场却看不出是谁改了值。",
+      "fix": "用 Encapsulate Variable 集中访问，再缩到所属模块；当前用户、租户等请求数据通过参数传递，让每次调用拥有明确上下文。",
+      "badExample": "export const context = { tenantId: null };\nexport function loadOrders() {\n  return queryOrders(context.tenantId);\n}\n// 各请求都会修改共享 context.tenantId",
+      "goodExample": "export function loadOrders(tenantId) {\n  return queryOrders(tenantId);\n}",
+      "exampleLanguage": "javascript",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Global Data"
+      },
+      "summary": "可变数据能被各处修改，可能的 Global Data → 用 Encapsulate Variable 集中入口并缩小范围"
+    },
+    {
+      "id": "refactoring-smells-mutable-data",
+      "title": "Mutable Data：集中更新并按需计算派生值",
+      "originalName": "Mutable Data（可变数据）",
+      "body": "修改共享数据会影响其他持有者，且读者难以找到所有写入点，这是可能的 Mutable Data。可用 Encapsulate Variable 集中更新，用 Separate Query from Modifier 分开查询与修改。变量承担多个含义时用 Split Variable；可推导的副本用 Replace Derived Variable with Query；结构化值可用 Change Reference to Value。",
+      "check": "检查派生总数是否和明细分别赋值，查询函数是否顺手改状态，以及多个模块是否持有同一可变对象。",
+      "why": "漏更新一份派生值就会产生自相矛盾的状态，例如订单明细已增加而总价仍是旧值。",
+      "fix": "用 Replace Derived Variable with Query 从明细计算总数；用 Encapsulate Variable 集中必要的更新，并用 Separate Query from Modifier 保持查询无副作用。",
+      "badExample": "const order = { items: [], total: 0 };\norder.items.push({ price: 200 });\nconsole.log(order.total);",
+      "goodExample": "const order = { items: [] };\nfunction totalPrice(order) {\n  return order.items.reduce((sum, item) => sum + item.price, 0);\n}\norder.items.push({ price: 200 });\nconsole.log(totalPrice(order));",
+      "exampleLanguage": "javascript",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Mutable Data"
+      },
+      "summary": "多处修改共享数据或派生副本，可能的 Mutable Data → 封装更新并用查询计算派生值"
+    },
+    {
+      "id": "refactoring-smells-divergent-change",
+      "title": "Divergent Change：把因不同原因变化的职责拆开",
+      "originalName": "Divergent Change（发散式变化）",
+      "body": "数据库结构、计费政策等不同原因反复要求修改同一模块，是可能的 Divergent Change。先辨认各自的变化上下文。前后相继的阶段可用 Split Phase 分开；交错的逻辑可先 Extract Function，再用 Move Function 移到所属模块；一类内部也可用 Extract Class 分开相关字段和行为。",
+      "check": "检查一个类是否同时维护 SQL、业务计算和展示格式；这些部分是否由不同需求独立改变。",
+      "why": "改数据库访问时还要理解计费规则，模块测试也被多种变化牵动。",
+      "fix": "按实际变化原因用 Split Phase 划分阶段，或用 Extract Function、Move Function 拆出独立模块；阶段间传递明确数据。",
+      "badExample": "class InvoiceService {\n  loadInvoice(id) { return db.query(\"select * from invoices where id = ?\", [id]); }\n  tax(amount) { return amount * 0.06; }\n}",
+      "goodExample": "class InvoiceRepository {\n  load(id) { return db.query(\"select * from invoices where id = ?\", [id]); }\n}\nclass TaxPolicy {\n  tax(amount) { return amount * 0.06; }\n}",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Divergent Change"
+      },
+      "summary": "同一模块因几类无关需求修改，可能的 Divergent Change → 用 Split Phase 或 Move Function 拆分职责"
+    },
+    {
+      "id": "refactoring-smells-shotgun-surgery",
+      "title": "Shotgun Surgery：把同一需求要一起改的逻辑放在一起",
+      "originalName": "Shotgun Surgery（霰弹式修改）",
+      "body": "一条规则变化要求在许多模块分别修改少量代码，是可能的 Shotgun Surgery。用 Move Function、Move Field 把一起变化的逻辑和数据放到共同模块。相同数据的相关操作可用 Combine Functions into Class 或 Combine Functions into Transform；零散边界不清时，也可先 Inline Function、Inline Class 聚拢后重新划分。",
+      "check": "用当前变更追踪一条业务决定：是否必须同步修改多个类中的常量、计算和判断才能成立。",
+      "why": "容易漏掉一个调用入口，让同一规则在不同页面或任务中表现不一致。",
+      "fix": "找出同一变化涉及的计算、判断和字段，用 Move Function、Move Field 移到共同模块；调用方只使用这个模块的公开入口。",
+      "badExample": "// 免运门槛改变时，结算与提示都需要同步修改\nfunction checkoutFee(total) { return total < 5000 ? 600 : 0; }\nfunction amountToFreeShipping(total) { return Math.max(0, 5000 - total); }",
+      "goodExample": "const shippingPolicy = {\n  freeFrom: 5000,\n  fee(total) { return total < this.freeFrom ? 600 : 0; },\n  amountToFree(total) { return Math.max(0, this.freeFrom - total); }\n};\nconst fee = shippingPolicy.fee(total);\nconst remaining = shippingPolicy.amountToFree(total);",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Shotgun Surgery"
+      },
+      "summary": "一个需求迫使多个模块各改一点，可能的 Shotgun Surgery → 用 Move Function、Move Field 聚拢相关逻辑"
+    },
+    {
+      "id": "refactoring-smells-feature-envy",
+      "title": "Feature Envy：函数更依赖别的对象的数据，就把它搬过去",
+      "originalName": "Feature Envy（依恋情结）",
+      "body": "一个函数跟另一个模块的函数和数据交流得特别多，远多于跟自己所在模块的交流，这就是可能的 Feature Envy。最常见的样子是：为了算出一个值，连续调用另一个对象的好几个 getter。原书的处理是 Move Function，把函数搬到它依赖的数据所在的地方；如果只有一部分代码在依恋别处，先 Extract Function 再搬。判断标准是：哪个模块拥有这个函数用到的大部分数据，函数就该放在哪里，把总是一起变化的东西放在一起。Strategy、Visitor 等模式有意把行为和数据分开，不算 Feature Envy。",
+      "check": "一个函数里，对同一个外部对象连续调用多个 getter，再用这些值做计算；而对自己所在对象的字段用得很少。",
+      "why": "数据和使用数据的逻辑分在两处。被依恋的对象一改字段，就要去别处找所有用到它的计算；同样的计算还容易在多个地方各写一遍。",
+      "fix": "用 Move Function 把这段计算搬到拥有数据的对象里，调用方只调用一个方法拿结果；只有一部分在依恋时，先 Extract Function 再搬。",
+      "badExample": "class ShippingService {\n  double fee(Order order) {\n    double weight = 0;\n    for (Item item : order.getItems()) weight += item.getWeight() * item.getQuantity();\n    return weight * order.getAddress().getRegion().getRatePerKg();\n  }\n}",
+      "goodExample": "class Order {\n  double totalWeight() {\n    double weight = 0;\n    for (Item item : items) weight += item.weight() * item.quantity();\n    return weight;\n  }\n  double shippingFee() { return totalWeight() * address.ratePerKg(); }\n}",
+      "exampleLanguage": "java",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Feature Envy"
+      },
+      "summary": "函数读取别的对象的数据多于自己的 → 用 Move Function 把它搬到那个对象上"
+    },
+    {
+      "id": "refactoring-smells-data-clumps",
+      "title": "Data Clumps：把反复成组出现的数据封装成对象",
+      "originalName": "Data Clumps（数据泥团）",
+      "body": "相同的几项数据在多个类或参数列表里共同出现，是可能的 Data Clumps。可尝试去掉其中一项；其余几项如果失去意义，说明它们应该合成一个对象。字段组合用 Extract Class；参数组合用 Introduce Parameter Object 或 Preserve Whole Object。对象建立后，再把使用这组数据的相关行为移入它。与 Large Class 的区别：本条看同一组数据是否在多处重复出现；Large Class 看一个类承担了多少职责。",
+      "check": "找重复出现的起止时间、地址组成部分、金额与币种等组合，核对它们是否始终一起使用。",
+      "why": "调用方要重复维护字段之间的关系，增加一项数据时也必须逐处扩展参数列表。",
+      "fix": "用 Extract Class 或 Introduce Parameter Object 建立共同类型，调用方传递该对象，再用 Move Function 移入相关校验和计算。",
+      "badExample": "send(city, street, postalCode);\nvalidate(city, street, postalCode);",
+      "goodExample": "const address = new Address(city, street, postalCode);\naddress.validate();\nsend(address);",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Data Clumps"
+      },
+      "summary": "相同字段或参数总一起出现，可能的 Data Clumps → 用 Extract Class 或 Introduce Parameter Object 表达共同概念"
+    },
+    {
+      "id": "refactoring-smells-domain-values",
+      "title": "Primitive Obsession：给带业务含义的基础值建立专用类型",
+      "originalName": "Primitive Obsession（基本类型偏执）",
+      "body": "金额、长度、电话、范围等概念只用数值或字符串表示，相关单位、校验和格式化散在调用处，是可能的 Primitive Obsession。用 Replace Primitive with Object 建立小型领域对象。类型码反复决定行为时，可用 Replace Type Code with Subclasses，再用 Replace Conditional with Polymorphism。",
+      "check": "检查同一字符串是否多处解析或格式化，数值是否依赖调用者记住单位，业务约束是否重复实现。",
+      "why": "普通数字可以相加，即使一个表示米、另一个表示厘米；调用者可能在类型检查通过时得到错误结果。",
+      "fix": "用 Replace Primitive with Object 建立带明确构造方法和业务操作的值对象，集中单位转换、校验和格式化。",
+      "badExample": "const width = 2; // 米\nconst margin = 30; // 厘米\nconst total = width + margin;",
+      "goodExample": "const width = Length.meters(2);\nconst margin = Length.centimeters(30);\nconst total = width.add(margin);",
+      "exampleLanguage": "javascript",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Primitive Obsession"
+      },
+      "summary": "数值或字符串承载重复的领域约束，可能的 Primitive Obsession → 用 Replace Primitive with Object 建立值对象"
+    },
+    {
+      "id": "refactoring-smells-repeated-dispatch",
+      "title": "Repeated Switches：集中重复的同类分派",
+      "originalName": "Repeated Switches（重复的 switch）",
+      "body": "同一类型码的 switch 或 if/else 分派在多处重复，是可能的 Repeated Switches。新增一种类型时，所有分派位置都需要同步补分支。可用 Replace Conditional with Polymorphism 让各类型提供行为。判断时要确认分派确实重复，单个分支或有完整匹配检查的模式匹配仍可直接表达需求。与 Open-Closed Principle、YAGNI 的区别：本条以多处重复分派为信号，Open-Closed Principle 依据已有的反复扩展建立稳定接口，YAGNI 推迟未来才会使用的能力；只有一处分派且很少新增类型时，可保留分支。",
+      "check": "搜索同一个 kind、type 或状态码的分支，核对新增取值时是否要同时修改多个函数。",
+      "why": "遗漏一个分支会让新类型只在部分功能里可用，默认分支还可能掩盖漏改。",
+      "fix": "差异只是固定数据时，先集中到一份共享映射；各类型有不同算法或步骤时，再用 Replace Conditional with Polymorphism 把成组行为放进各类型实现。",
+      "badExample": "// 套餐入口已校验 kind 只能是 free 或 pro\nfunction fee(plan) { return plan.kind === \"pro\" ? 900 : 0; }\nfunction quota(plan) { return plan.kind === \"pro\" ? 100 : 10; }",
+      "goodExample": "const planSettings = {\n  pro: { fee: 900, quota: 100 },\n  free: { fee: 0, quota: 10 }\n};\nconst settings = planSettings[plan.kind];\nconst fee = settings.fee;\nconst quota = settings.quota;",
+      "exampleLanguage": "javascript",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Repeated Switches"
+      },
+      "summary": "同一类型分派在多处重复，可能的 Repeated Switches → 用共享映射集中数据，或用 Replace Conditional with Polymorphism 收拢行为"
+    },
+    {
+      "id": "refactoring-smells-temporary-state",
+      "title": "Temporary Field：把局部有效的字段移到专用对象",
+      "originalName": "Temporary Field（临时字段）",
+      "body": "某些字段只在特定计算期间才有值，平常对对象没有意义，是可能的 Temporary Field。用 Extract Class 给这些字段建立专用对象，再用 Move Function 移入相关计算。无值情形有独立行为时可用 Introduce Special Case。简单计算也可直接使用局部变量。",
+      "check": "检查实例字段是否由某个方法临时填写、由另一个方法读取，正常状态却一直是 null 或未定义。",
+      "why": "读者必须记住调用顺序；对象复用后可能误读上一次计算留下的中间结果。",
+      "fix": "用 Extract Class 建立一次计算所需的对象，再用 Move Function 移入相关行为；只在一个方法里使用的值改成局部变量。",
+      "badExample": "class Quote {\n  calculate(items) {\n    this.weight = sumWeight(items);\n    return this.shippingFee();\n  }\n  shippingFee() { return this.weight * 3; }\n}\n// shippingFee 只在 calculate 设置 weight 后才有效",
+      "goodExample": "class ShippingQuote {\n  constructor(items) { this.weight = sumWeight(items); }\n  fee() { return this.weight * 3; }\n}\nclass Quote {\n  calculate(items) { return new ShippingQuote(items).fee(); }\n}",
+      "exampleLanguage": "javascript",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Temporary Field"
+      },
+      "summary": "对象字段只在部分算法中有效，可能的 Temporary Field → 用 Extract Class 收拢字段及相关行为"
+    },
+    {
+      "id": "refactoring-smells-internal-navigation",
+      "title": "Message Chains：把内部对象导航放进合适入口",
+      "originalName": "Message Chains（过长的消息链）",
+      "body": "调用方逐层获取对象后继续导航，依赖整个内部关系链，是可能的 Message Chains。链条可能写在一行，也可能拆成多个临时变量。可用 Hide Delegate 提供业务入口，或先 Extract Function 再 Move Function，把最终操作移到数据附近。逐层机械加转发会产生 Middle Man，应检查哪一层真正拥有该操作。与 Law of Demeter 的区别：本条识别泄露内部对象关系的调用链，并用重构隐藏导航；Law of Demeter 给出方法应只了解直接协作者的设计边界。",
+      "check": "检查 getA().getB().getC()，以及用多个临时变量完成的同样导航；中间关系改变是否迫使调用方修改。",
+      "why": "部门和经理的组织方式变化，会影响本来只想查审批人的业务调用。",
+      "fix": "用 Hide Delegate 提供表达业务意图的入口，或用 Extract Function、Move Function 将操作移到链条下游；流式 API 按是否泄露内部关系判断。",
+      "badExample": "const approver = employee.department.manager.email;\nsendApproval(approver);",
+      "goodExample": "const approver = employee.approvalEmail();\nsendApproval(approver);",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Message Chains"
+      },
+      "summary": "调用方穿过多层内部对象，可能的 Message Chains → 用 Hide Delegate 或 Move Function 隐藏导航"
+    },
+    {
+      "id": "refactoring-smells-middle-man",
+      "title": "Middle Man：删去只转发且无职责的中间层",
+      "originalName": "Middle Man（中间人）",
+      "body": "一个类的大部分方法只原样转发给另一个对象，又没有隐藏有用细节或承担约束，是可能的 Middle Man。用 Remove Middle Man 让调用方访问真正提供能力的对象；少量空洞方法可用 Inline Function。权限、生命周期和稳定边界等实际职责仍可通过委托实现。",
+      "check": "检查一整组方法是否只传递相同参数和返回值，新增底层方法是否必然要增加一份同名转发。",
+      "why": "读者为了找到行为要多跳一层，接口变化也要维护重复声明。",
+      "fix": "用 Remove Middle Man 移除无职责的转发层；只有少量空洞方法时用 Inline Function。保留有明确约束或边界职责的委托。",
+      "badExample": "class ClockProxy {\n  constructor(clock) { this.clock = clock; }\n  now() { return this.clock.now(); }\n}\nconst time = new ClockProxy(clock).now();",
+      "goodExample": "const time = clock.now();",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Middle Man"
+      },
+      "summary": "一层接口大多原样转发，可能的 Middle Man → 用 Remove Middle Man 或 Inline Function 减少跳转"
+    },
+    {
+      "id": "refactoring-smells-speculative-generality",
+      "title": "Speculative Generality：删去当前需求未使用的扩展机制",
+      "originalName": "Speculative Generality（夸夸其谈通用性）",
+      "body": "为了尚未出现的需求预留抽象类、钩子、参数或分支，是可能的 Speculative Generality。核对真实调用方与当前需求。空洞继承可用 Collapse Hierarchy，委托可用 Inline Function、Inline Class，未使用参数可用 Change Function Declaration。仅被专门测试调用的产品入口也需核对用途。相邻规则同时启用时，按改动性质选用：当前功能多余的设计层次用 Rule of Simplicity；新增服务、部署单元、消息队列或大框架用 Rule of Parsimony；程序内部多余的字段、缓存和状态用 Occam’s Razor；本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality；表达式和函数内部的阅读难度用 Google Complexity。",
+      "check": "检查本次改动涉及的存量代码：是否有始终传入相同值的参数、只有一个实现且无职责的抽象层，以及业务从未使用的回调。与 YAGNI 同时启用时，本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality。",
+      "why": "每次修改都要考虑不存在的变化方式，真实调用链反而被额外层次遮住。",
+      "fix": "用 Change Function Declaration 删除无用途参数，用 Inline Function、Inline Class 或 Collapse Hierarchy 收回空洞层次，保留当前需求使用的行为。",
+      "badExample": "// 本次修改涉及的存量代码：所有调用方都使用默认参数\nfunction total(items, futureTransform = x => x) {\n  return futureTransform(items.reduce((sum, item) => sum + item.price, 0));\n}\ntotal(items);",
+      "goodExample": "function total(items) {\n  return items.reduce((sum, item) => sum + item.price, 0);\n}",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Speculative Generality"
+      },
+      "summary": "为假想需求加入钩子或抽象，可能的 Speculative Generality → 内联空洞层次并删除无用途入口"
+    },
+    {
+      "id": "refactoring-smells-large-class",
+      "title": "Large Class：把各自成组的字段和行为拆开",
+      "originalName": "Large Class（过大的类）",
+      "body": "一个类承担许多事情，出现多组字段、局部独立的方法和重复实现，是可能的 Large Class。找出同前缀字段、一起使用的数据，以及不同调用方各自需要的子集，用 Extract Class 拆出对象。重复逻辑可先 Extract Function；确有共同继承含义时再考虑 Extract Superclass。与 Data Clumps 的区别：本条看一个类承担了多少职责；Data Clumps 看同一组数据是否在多处重复出现。",
+      "check": "查看带相同前缀的字段组，以及完全不使用另一组字段的方法；是否存在只需要账单或只需要收货地址的调用方。",
+      "why": "任一职责变化都触动同一个大类，构造和测试一个简单行为却要准备许多无关数据。",
+      "fix": "用 Extract Class 把一组字段及相关行为一起拆出，原类组合这些对象；先用 Extract Function 整理重复实现。",
+      "badExample": "class Customer {\n  // 另有订单、积分、通知偏好等三十多个字段和方法\n  billingCity; billingStreet;\n  shippingCity; shippingStreet;\n  formatBilling() { return `${this.billingCity} ${this.billingStreet}`; }\n  formatShipping() { return `${this.shippingCity} ${this.shippingStreet}`; }\n}",
+      "goodExample": "class Address {\n  constructor(city, street) { Object.assign(this, { city, street }); }\n  format() { return `${this.city} ${this.street}`; }\n}\nconst customer = {\n  billing: new Address(\"南京\", \"学府路\"),\n  shipping: new Address(\"苏州\", \"园林路\")\n};",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Large Class"
+      },
+      "summary": "类中聚集多组独立字段和行为，可能的 Large Class → 用 Extract Class 拆出内聚对象"
+    },
+    {
+      "id": "refactoring-smells-lazy-element",
+      "title": "Lazy Element：内联没有额外含义的函数或类",
+      "originalName": "Lazy Element（冗赘的元素）",
+      "body": "一个函数的名称没有比函数体多表达含义，或一个类只包住简单操作且无独立职责，是可能的 Lazy Element。这也可能来自已缩减的旧职责。可用 Inline Function 或 Inline Class 删除空壳；继承层次没有差异时可用 Collapse Hierarchy。保留有命名、复用或组织价值的边界。",
+      "check": "检查只调用同名函数的包装函数，或只有一个简单操作且没有额外约束的类。",
+      "why": "读者需要跨多个文件追踪实际行为，维护者还要同步修改没有独立意义的入口。",
+      "fix": "用 Inline Function 或 Inline Class 将实现合回调用处或所属对象；空洞的继承层次用 Collapse Hierarchy 合并。",
+      "badExample": "function loadProfile(id) { return profileStore.loadProfile(id); }\nconst profile = loadProfile(id);",
+      "goodExample": "const profile = profileStore.loadProfile(id);",
+      "exampleLanguage": "javascript",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Lazy Element"
+      },
+      "summary": "函数或类已无独立含义，可能的 Lazy Element → 用 Inline Function 或 Inline Class 移除空壳"
+    },
+    {
+      "id": "refactoring-smells-refused-bequest",
+      "title": "Refused Bequest：无法履行父类接口时改用组合",
+      "originalName": "Refused Bequest（被拒绝的遗赠）",
+      "summary": "子类不履行父类的公开接口，可能的 Refused Bequest → 调整继承边界，或用 Replace Superclass with Delegate 改成组合",
+      "body": "子类只需要父类的一部分字段或方法，是可能的 Refused Bequest。若造成理解困难，可用 Push Down Method、Push Down Field 把特有部分移到适用的子类。仅复用部分实现时，这个信号可能很弱；子类拒绝履行父类公开接口时，需要调整继承边界。子类不该继承父类接口时，用 Replace Superclass with Delegate，让它持有原父类实例并只公开支持的操作，下面的 ReadOnlyStore 就属于这种情形。用子类表达的变体需要改为运行时可替换时，用 Replace Subclass with Delegate，由原父类持有委托对象来承载变体行为。",
+      "check": "检查子类是否把继承的方法改成空操作或抛出不支持错误，调用方是否需要判断具体子类才能使用父类接口；核对被舍弃的成员是实现细节还是公开承诺。",
+      "why": "调用方按父类承诺调用方法，却在某个子类上失败；子类也会暴露没有实际含义的状态和操作。",
+      "fix": "只是不适用的实现时，用 Push Down Method、Push Down Field 调整层次；无法履行父类接口时，用 Replace Superclass with Delegate 改成组合，只公开实际支持的操作。",
+      "badExample": "class ReadOnlyStore extends Store {\n  save(record) { throw new Error(\"只读存储不支持保存\"); }\n}\n// Store 承诺 load 和 save 都可用",
+      "goodExample": "class ReadOnlyStore {\n  constructor(store) { this.store = store; }\n  load(id) { return this.store.load(id); }\n}\n// 只公开读取能力，不向调用方承诺 save",
+      "exampleLanguage": "javascript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "refactoring-second-edition",
+        "reference": "第 3 章，Refused Bequest"
+      }
+    }
+  ],
+  "judgement": true
+}

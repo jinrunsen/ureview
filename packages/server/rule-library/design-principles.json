@@ -1,0 +1,334 @@
+{
+  "id": "design-principles",
+  "name": "设计原则",
+  "layer": "principle",
+  "languages": [],
+  "sources": [
+    {
+      "id": "unix-programming",
+      "title": "The Art of Unix Programming",
+      "author": "Eric S. Raymond",
+      "url": "https://www.catb.org/esr/writings/taoup/html/ch01s06.html",
+      "license": "CC BY-ND 1.0，另有纸质出版及营利用途限制；技术原则说明与示例由 uReview 编写"
+    },
+    {
+      "id": "yagni",
+      "title": "Yagni",
+      "author": "Martin Fowler",
+      "url": "https://martinfowler.com/bliki/Yagni.html",
+      "license": "作者保留版权；仅引用原则出处"
+    },
+    {
+      "id": "pragmatic-programmer",
+      "title": "The Pragmatic Programmer, 20th Anniversary Edition",
+      "author": "David Thomas、Andrew Hunt",
+      "url": "https://pragprog.com/tips/",
+      "license": "书籍版权；仅引用原则出处"
+    },
+    {
+      "id": "solid",
+      "title": "Design Principles and Design Patterns",
+      "author": "Robert C. Martin",
+      "url": "https://objectmentor.com/resources/articles/Principles_and_Patterns.pdf",
+      "license": "作者保留版权；仅引用原则出处"
+    },
+    {
+      "id": "single-responsibility",
+      "title": "The Single Responsibility Principle",
+      "author": "Robert C. Martin",
+      "url": "https://blog.cleancoder.com/uncle-bob/2014/05/08/SingleReponsibilityPrinciple.html",
+      "license": "作者保留版权；仅引用原则出处"
+    },
+    {
+      "id": "demeter",
+      "title": "Law of Demeter: Principle of Least Knowledge",
+      "author": "Northeastern University Demeter 项目；Ian Holland、Karl Lieberherr",
+      "url": "https://www2.ccs.neu.edu/research/demeter/demeter-method/LawOfDemeter/general-formulation.html",
+      "license": "作者保留版权；仅引用原则出处"
+    },
+    {
+      "id": "ockham-necessity",
+      "title": "Quodlibeta Septem／Quodlibet III，Quaestio 6",
+      "author": "William of Ockham；The Logic Museum 转录",
+      "url": "https://www.logicmuseum.com/wiki/Authors/Ockham/Quodlibeta_Septem/Quodlibeta_Septem/Quodlibet_III/Quaestio_VI",
+      "license": "中世纪原著为公有领域；条目为 uReview 自写工程应用，未复制网页译文"
+    }
+  ],
+  "inclusionReasons": [
+    {
+      "kind": "publication",
+      "explanation": "DRY、Unix 哲学与面向对象设计原则有作者书籍、论文和项目文档作为出处。"
+    },
+    {
+      "kind": "longevity",
+      "explanation": "迪米特法则由 1987 年 Demeter 项目提出；《程序员修炼之道》有二十周年版，这些原则持续用于讨论模块边界。"
+    }
+  ],
+  "license": {
+    "tier": "original",
+    "attribution": "原则出处分别归于上述作者与项目；评审条目由 uReview 编写。",
+    "notice": "本集保留原则层，用自写说明与示例解释设计判断。原始论述的版权和许可见各来源，未复制书中段落或示例。"
+  },
+  "libraryVersion": "2026.10.4",
+  "entries": [
+    {
+      "id": "design-principles-simplicity",
+      "title": "Rule of Simplicity：删去不承担实际约束的设计层次",
+      "body": "Rule of Simplicity 要求设计保持简单，只承担实际约束需要的复杂性。评审时列出当前功能和质量要求，检查每层对象、每份状态和每个分支的用途。清楚的小部件可以组合成系统，这个原则与 KISS 的设计取向相符。相邻规则同时启用时，按改动性质选用：当前功能多余的设计层次用 Rule of Simplicity；新增服务、部署单元、消息队列或大框架用 Rule of Parsimony；程序内部多余的字段、缓存和状态用 Occam’s Razor；本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality；表达式和函数内部的阅读难度用 Google Complexity。",
+      "category": "quality",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "unix-programming",
+        "reference": "第 1 章，Rule of Simplicity"
+      },
+      "originalName": "Rule of Simplicity（简单原则）",
+      "check": "检查一个简单行为是否必须穿过多层对象、工厂或适配器；去掉其中一层后，需求、失败处理或性能要求是否仍得到满足。",
+      "why": "多余概念让读者需要同时记住更多状态和约定，修改也更容易漏掉相互关联的路径。",
+      "fix": "先写清当前任务和约束，再删除无助于这些约束的分支或转发层；保留能解释其必要性的复杂部分。",
+      "badExample": "// 当前功能只是判断用户能否发布\nconst decision = new PermissionPipeline([\n  new RoleLoader(user),\n  new PublishRuleFactory().create(),\n  new BooleanDecisionAdapter()\n]).execute();",
+      "goodExample": "function canPublish(role: Role) {\n  return role === \"editor\" || role === \"owner\";\n}\nconst decision = canPublish(user.role);",
+      "exampleLanguage": "typescript",
+      "summary": "一个简单行为要穿过多层对象、工厂或适配器才能完成 → 按 Rule of Simplicity 删掉不承担实际约束的层",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-current-requirements",
+      "title": "YAGNI：等需求出现后再增加对应能力",
+      "body": "YAGNI 要求推迟本次交付用不到的能力，等实际需要时再实现；即使未来需求已经排期，也按这个时点判断。它适用于预留字段、可插拔框架和配置开关。为了让现有代码容易修改而进行重构、测试和持续交付，仍然是 evolutionary design（渐进设计）的基础。相邻规则同时启用时，按改动性质选用：当前功能多余的设计层次用 Rule of Simplicity；新增服务、部署单元、消息队列或大框架用 Rule of Parsimony；程序内部多余的字段、缓存和状态用 Occam’s Razor；本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality；表达式和函数内部的阅读难度用 Google Complexity。与 Open-Closed Principle、Repeated Switches 的区别：它们围绕已有变化和重复分派改进结构；只有一处分派且类型很少变化时，可保留分支。",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "yagni",
+        "reference": "Yagni／Presumptive features 与保持代码可修改性的论述"
+      },
+      "originalName": "You Aren’t Gonna Need It（YAGNI，不需要的先不做）",
+      "check": "检查本次改动新增的能力或扩展点在本次交付中是否有调用方；只为后续迭代准备的扩展点，即使已排期也推迟。与 Speculative Generality 同时启用时，本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality。",
+      "why": "提前实现会占用当前交付时间，还让以后每次修改都承担额外分支和测试的维护成本；未来需求也可能与预想不同。",
+      "fix": "只实现当前需要的能力，同时保持模块容易修改；把未来需求记录下来，在实际出现时重新设计。",
+      "badExample": "/* 当前只需要本地导出文件 */\ninterface ExportBackend { local(): void; cloud(): void; archive(): void; }\nconst backend = createBackend(config.futureBackend);",
+      "goodExample": "/* 当前导出入口 */\nfunction exportReport(report: Report, path: string) {\n  writeReportFile(report, path);\n}",
+      "exampleLanguage": "typescript",
+      "summary": "为本次交付用不到的未来需求提前增加能力 → 按 YAGNI 推迟实现，并保持现有代码容易修改",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-authoritative-knowledge",
+      "title": "DRY：为同一项知识保留一个权威定义",
+      "body": "同一项业务知识在系统中应有清楚、唯一的权威表示。若政策变化必须同时手工修改多个公式、校验或文档，说明知识被重复表达。代码看起来相似也可能承载不同规则，是否需要共享应按变化原因判断。",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "pragmatic-programmer",
+        "reference": "Tip 15／DRY—Don’t Repeat Yourself"
+      },
+      "originalName": "Don’t Repeat Yourself（DRY，不要重复自己）",
+      "check": "检查同一阈值、费率或状态含义是否在多处独立维护；确认它们在业务规则改变时是否必须一起改。",
+      "why": "某处修改、某处遗漏会让系统对同一事实给出不同答案，出现校验通过却执行失败等问题。",
+      "fix": "集中定义业务知识，让使用方调用；需要多种表示时，由权威定义生成代码或配置，例如从 schema 生成校验。让拥有不同变化原因的规则各自维护。",
+      "badExample": "// 结算和开票按同一项服务费率收费，政策调整时必须一起改\nconst checkoutFee = amount * 0.06;\nconst invoiceFee = amount * 0.06;",
+      "goodExample": "function serviceFee(amount: number) { return amount * 0.06; }\nconst checkoutFee = serviceFee(amount);\nconst invoiceFee = serviceFee(amount);",
+      "exampleLanguage": "typescript",
+      "summary": "同一知识在多处独立维护 → 按 DRY 集中权威定义，让使用方引用或由它生成代码、配置",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-parsimony",
+      "title": "Rule of Parsimony：确认简单方案不足后再扩大程序",
+      "body": "Rule of Parsimony 要求先验证小程序和已有工具的组合能否完成任务，确认不足后再建设大程序或新框架。规模包括代码量和内部复杂性。评审时说明新增服务、部署单元、消息队列或大框架解决的实际限制；已经满足需求的小方案可以继续使用。相邻规则同时启用时，按改动性质选用：当前功能多余的设计层次用 Rule of Simplicity；新增服务、部署单元、消息队列或大框架用 Rule of Parsimony；程序内部多余的字段、缓存和状态用 Occam’s Razor；本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality；表达式和函数内部的阅读难度用 Google Complexity。",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "unix-programming",
+        "reference": "第 1 章，Rule of Parsimony"
+      },
+      "originalName": "Rule of Parsimony（节约原则）",
+      "check": "为一个小需求新增服务、部署单元、消息队列或大框架时，检查 PR 是否写明现有工具或小程序在容量、延迟或功能上的具体不足。与 Occam’s Razor 同时启用时，这类程序规模的扩张用 Rule of Parsimony；程序内部多余的字段、缓存和状态用 Occam’s Razor。",
+      "why": "每个新增组件都需要部署、故障处理和维护；需求很小时，这些工作可能超过业务逻辑本身。",
+      "fix": "以能满足当前约束的最小方案开始，记录实际容量或功能限制，达到限制后再引入相应组件。",
+      "badExample": "// 需求：每晚把当天几百行订单导出成 CSV\nconst scheduler = new DistributedScheduler({ coordinator: zookeeper, shards: 8 });\nscheduler.register(\"daily-report\", new ShardedAggregationJob(orderSource, csvSink));\nawait scheduler.start();",
+      "goodExample": "// 需求：每晚把当天几百行订单导出成 CSV，由 cron 调用\nconst rows = await db.query(\"select * from orders where created_on = $1\", [today]);\nawait fs.writeFile(`orders-${today}.csv`, toCsv(rows));",
+      "exampleLanguage": "typescript",
+      "summary": "未验证小方案就引入大程序或框架 → 先验证小工具与组合方案，再按实际限制扩大",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-necessary-entities",
+      "title": "Occam’s Razor：为内部字段、缓存和状态说明必要性",
+      "originalName": "Occam’s Razor（奥卡姆剃刀）",
+      "body": "Occam’s Razor 要求对新增实体给出必要理由。本条将这一原则用于程序内部的字段、缓存和状态：在满足同样功能和质量约束的方案中，优先选择独立状态和假设较少的方案；可直接推导的副本要说明单独保存的用途。相邻规则同时启用时，按改动性质选用：当前功能多余的设计层次用 Rule of Simplicity；新增服务、部署单元、消息队列或大框架用 Rule of Parsimony；程序内部多余的字段、缓存和状态用 Occam’s Razor；本次新增且无当前调用方的能力或扩展点用 YAGNI；本次改动涉及的存量代码中的闲置扩展机制用 Speculative Generality；表达式和函数内部的阅读难度用 Google Complexity。",
+      "check": "检查程序内部新增的字段、缓存和状态是否承担现有数据无法满足的需求或约束；删除它后，哪些明确要求会失效。与 Rule of Parsimony 同时启用时，新增服务、部署单元、消息队列或大框架用 Rule of Parsimony。",
+      "why": "每个独立状态都需要维护一致性；缺少用途的副本会让同一业务事实出现多个答案。",
+      "fix": "移除没有必要性的字段、缓存和状态，让可推导的值从权威数据计算；有性能或历史要求时保留对应结构并说明更新、失效或快照边界。",
+      "badExample": "// 没有缓存或历史快照需求，完成任务时还要手工同步 completedCount\nclass TaskList {\n  tasks: Task[] = [];\n  completedCount = 0;\n}",
+      "goodExample": "class TaskList {\n  tasks: Task[] = [];\n  get completedCount() {\n    return this.tasks.filter(task => task.completed).length;\n  }\n}",
+      "exampleLanguage": "typescript",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "ockham-necessity",
+        "reference": "Quodlibet III，Quaestio 6／pluralitas non est ponenda sine necessitate；必要性原则的工程应用"
+      },
+      "summary": "程序内部增加字段、缓存或状态却说不出必要性 → 在满足同样约束的方案中保留较少独立状态",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-single-responsibility",
+      "title": "Single Responsibility Principle：按不同业务角色的变化划分职责",
+      "body": "模块应围绕同一种变更原因组织。这里的原因来自要求变更的业务角色：例如财务决定薪资算法，人事决定工时统计，技术团队或 DBA 决定存储格式。把来自不同角色的政策放在一个模块里，会让一次变更影响本来无关的使用方。职责划分需要理解谁会因什么原因要求改它。",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "single-responsibility",
+        "reference": "The Single Responsibility Principle"
+      },
+      "originalName": "Single Responsibility Principle（单一职责原则，SRP）",
+      "check": "检查一个模块是否同时受多类业务政策驱动；一种政策改变时，是否要重测另一种无关政策。",
+      "why": "为某个角色修改代码时可能破坏另一个角色的功能，独立需求也容易在同一文件中冲突。",
+      "fix": "按独立变化的业务政策提炼模块，让共享数据通过明确接口传递；协调这些模块的流程可以单独保留。",
+      "badExample": "class EmployeeService {\n  calculatePay(employee: Employee) { /* 财务政策 */ }\n  reportHours(employee: Employee) { /* 人事政策 */ }\n  save(employee: Employee) { /* 存储格式 */ }\n}",
+      "goodExample": "class Payroll { calculatePay(employee: Employee) { /* 财务政策 */ } }\nclass HoursReport { reportHours(employee: Employee) { /* 人事政策 */ } }\nclass EmployeeRepository { save(employee: Employee) { /* 存储格式 */ } }",
+      "exampleLanguage": "typescript",
+      "summary": "不同业务角色的政策共用一个模块 → 按 Single Responsibility Principle 分开各自变化的职责",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-open-closed",
+      "title": "Open-Closed Principle：通过稳定接口扩展已有变化点",
+      "body": "一个模块应能通过增加实现来扩展行为，同时让已经稳定的处理逻辑保持不变。实现方法通常是在确实存在的变化方向上建立抽象接口，让不同类型各自提供行为。抽象需要围绕实际变化选择，不能假设所有未来变化都能预先覆盖。只有一处分派且很少新增类型时，保留分支即可。与 Repeated Switches、YAGNI 的区别：本条根据已经反复发生的扩展建立稳定接口，Repeated Switches 针对多处重复分派，YAGNI 推迟仅为未来交付准备的能力。",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "solid",
+        "reference": "The Open Closed Principle"
+      },
+      "originalName": "Open-Closed Principle（开闭原则，OCP）",
+      "check": "检查新增同类业务对象时是否必须反复修改多个类型分支，稳定流程是否直接知道每种具体实现。",
+      "why": "每次扩展都改公共流程会扩大回归范围，多处分派还容易漏加某一种新类型。",
+      "fix": "把已有差异放到共同契约的实现中，由稳定流程调用契约，在组装位置选择实现。",
+      "badExample": "// 承运方式每季度都在增加，deliver 已为此改过多次\nfunction deliver(order: Order) {\n  if (order.carrier === \"bike\") return sendByBike(order);\n  if (order.carrier === \"van\") return sendByVan(order);\n}",
+      "goodExample": "interface Carrier { send(order: Order): Delivery; }\nfunction deliver(order: Order, carrier: Carrier) {\n  return carrier.send(order);\n}",
+      "exampleLanguage": "typescript",
+      "summary": "新增同类行为总要改动稳定流程 → 按 Open-Closed Principle 提炼变化点，通过实现扩展",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-substitution-contract",
+      "title": "Liskov Substitution Principle：让每个实现履行共同契约",
+      "body": "Liskov Substitution Principle 要求调用方使用抽象类型时，换成任一实现仍能按共同契约工作。实现应接受契约允许的输入、兑现承诺的结果，并维护状态约束。Design by Contract 中的 precondition（前置条件）不能收紧，postcondition（后置条件）不能削弱。契约还包含约定的错误和副作用。",
+      "category": "correctness",
+      "severity": "warning",
+      "source": {
+        "sourceId": "solid",
+        "reference": "The Liskov Substitution Principle"
+      },
+      "originalName": "Liskov Substitution Principle（里氏替换原则，LSP）",
+      "check": "检查实现是否拒绝接口承诺接受的输入，是否返回约定之外的结果，调用方是否被迫判断具体类型才能继续。",
+      "why": "调用方按接口写对了代码，却因为换一个实现而失败，抽象接口失去可替换性。",
+      "fix": "让所有实现满足共同契约；确有不同能力时重划抽象，并用同一组契约测试检验各实现。",
+      "badExample": "interface Reader { read(offset: number): Uint8Array; } // 允许任意非负偏移\nclass ForwardOnlyReader implements Reader {\n  read(offset: number) {\n    if (offset < this.position) throw new Error(\"不支持回读\");\n    return this.readForward(offset);\n  }\n}",
+      "goodExample": "interface SequentialReader { readNext(): Uint8Array; }\ninterface RandomAccessReader { read(offset: number): Uint8Array; }\n// 只能顺序读取的实现只承诺 SequentialReader",
+      "exampleLanguage": "typescript",
+      "summary": "替换实现后调用方的既有约定失效 → 按 Liskov Substitution Principle 修正实现或重划抽象"
+    },
+    {
+      "id": "design-principles-interface-segregation",
+      "title": "Interface Segregation Principle：按调用方需要的能力划分接口",
+      "body": "不同类型的调用方应依赖各自需要的能力集合，避免被迫依赖从不使用的方法。一个实现可以同时提供多个接口；接口的分组依据是使用关系。相同使用需求可以共享接口，不必为每一个调用对象建立独立接口。",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "solid",
+        "reference": "The Interface Segregation Principle"
+      },
+      "originalName": "Interface Segregation Principle（接口隔离原则，ISP）",
+      "check": "检查只读调用方是否依赖写方法，某些实现是否为满足大接口而提供空方法或抛出未实现错误。",
+      "why": "无关能力变更会影响更多调用方，也容易让接口承诺超出某个实现真正具备的能力。",
+      "fix": "按调用方的能力需求拆分接口，由实际具备多种能力的实现组合实现这些接口。",
+      "badExample": "interface Store {\n  load(id: string): SavedRecord;\n  save(record: SavedRecord): void;\n  delete(id: string): void;\n}\nfunction show(store: Store) { return store.load(\"latest\"); }",
+      "goodExample": "interface RecordReader { load(id: string): SavedRecord; }\ninterface RecordWriter { save(record: SavedRecord): void; }\nfunction show(store: RecordReader) { return store.load(\"latest\"); }",
+      "exampleLanguage": "typescript",
+      "summary": "调用方依赖从不使用的接口能力 → 按 Interface Segregation Principle 按使用需求拆分接口",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-dependency-inversion",
+      "title": "Dependency Inversion Principle：让业务规则依赖能力契约",
+      "body": "Dependency Inversion Principle 要求高层业务政策和底层技术实现依赖抽象契约，技术细节实现契约。契约表达业务所需能力，隐藏数据库连接和供应商客户端等实现细节。组装位置创建适配器并注入业务模块。稳定的基础库可按实际变化风险直接使用。",
+      "category": "testability",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "solid",
+        "reference": "The Dependency Inversion Principle"
+      },
+      "originalName": "Dependency Inversion Principle（依赖倒置原则，DIP）",
+      "check": "检查业务模块是否直接创建具体数据库或网络客户端，接口是否暴露技术库类型，替换实现是否必须改业务判断。",
+      "why": "底层细节的变化会传入业务层，测试业务行为也被迫配置真实基础设施。",
+      "fix": "在业务边界定义所需能力，由技术适配器实现，在组装位置创建并传入适配器。",
+      "badExample": "function approve(order: Order) {\n  const client = new VendorMailClient(apiKey);\n  client.send({ recipient: order.email, templateId: \"approved\" });\n}",
+      "goodExample": "interface ApprovalNotice { sendTo(email: string): void; }\nfunction approve(order: Order, notice: ApprovalNotice) {\n  notice.sendTo(order.email);\n}\n// 组装处把供应商邮件适配器作为 notice 传入",
+      "exampleLanguage": "typescript",
+      "summary": "业务政策直接依赖易变的技术细节 → 按 Dependency Inversion Principle 定义能力契约，由适配器实现",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-local-knowledge",
+      "title": "Law of Demeter：通过直接协作者完成操作",
+      "body": "Law of Demeter 要求模块尽量只了解直接协作者，通过它们提供的行为完成工作。方法的直接协作者包括自身、参数、方法内创建的对象、自身字段引用的对象；从协作者取得其内部对象后再调用，就跨过了这条知识边界。在本对象内部用自己的 getter 取自身字段引用的对象，等同于直接使用该字段。评审时检查内部关系变化影响了谁、数据约束由谁维护；普通数据传输对象和流式 API 需要结合用途判断。与 Message Chains 的区别：本条界定方法可以了解哪些对象；Message Chains 识别已经泄露内部导航关系的调用链，并提供重构手法。",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "demeter",
+        "reference": "Law of Demeter／General Formulation"
+      },
+      "originalName": "Law of Demeter（迪米特法则）",
+      "check": "检查调用方是否必须知道对象内部多层关系才能完成业务操作，内部结构改变时是否会影响这些调用方。",
+      "why": "一处内部对象重组会迫使多个外部模块同时修改，拥有数据的对象也无法维护自己的状态约束。",
+      "fix": "把操作交给直接协作者，由它处理内部关系；入口名称表达业务意图并保留必要校验。",
+      "badExample": "order.getCustomer().getWallet().setBalance(\n  order.getCustomer().getWallet().getBalance() - order.total\n);",
+      "goodExample": "order.chargeCustomer();\n// Order 通过 Customer 的扣款操作完成结算，内部余额由其拥有者维护",
+      "exampleLanguage": "typescript",
+      "summary": "调用方了解协作者的多层内部结构 → 按 Law of Demeter 把操作交给直接协作者",
+      "judgement": true
+    },
+    {
+      "id": "design-principles-composable-output",
+      "title": "Rule of Composition：让程序的输入输出便于组合",
+      "body": "Rule of Composition 要求程序能与其他程序连接。定义清楚、稳定、便于机器处理的输入输出约定，使一个工具的结果能供下一个工具使用。命令行工具把数据写到 stdout（标准输出），日志和提示写到 stderr（标准错误）；Node 中 console.log 写 stdout，console.error 写 stderr。成功时使用 exit code（退出码）0，失败时以非零 exit code 退出，让下游判断结果是否完整。",
+      "category": "reliability",
+      "severity": "warning",
+      "source": {
+        "sourceId": "unix-programming",
+        "reference": "第 1 章，Rule of Composition"
+      },
+      "originalName": "Rule of Composition（组合原则）",
+      "check": "检查机器输出是否夹杂日志或提示文字，调用方能否明确识别格式与失败状态，是否需要解析面向人的装饰内容。",
+      "why": "下游工具可能把日志当成数据，或在上游失败后继续处理不完整结果，组合后的故障难以定位。",
+      "fix": "给数据规定稳定格式并写到 stdout，把诊断写到 stderr；失败时设置非零 exit code。",
+      "badExample": "console.log(\"开始导出\");\nconsole.log(JSON.stringify(records));",
+      "goodExample": "console.error(\"开始导出\");\ntry {\n  const records = await loadRecords();\n  console.log(JSON.stringify(records));\n} catch (error) {\n  console.error(\"导出失败\", error);\n  process.exitCode = 1;\n}",
+      "exampleLanguage": "typescript",
+      "summary": "程序输出难以交给下一个工具 → 按 Rule of Composition 提供稳定数据格式并分开诊断通道"
+    },
+    {
+      "id": "design-principles-policy-mechanism",
+      "title": "Rule of Separation：将业务政策与执行机制分开",
+      "body": "Rule of Separation 要求分开 policy（政策）与 mechanism（机制），并分开界面与执行引擎。政策决定业务条件和要执行的动作，机制负责完成操作。把政策通过参数或窄接口交给机制，让通用发送、调度、存储能力能够服务不同业务。",
+      "category": "architecture",
+      "severity": "recommendation",
+      "source": {
+        "sourceId": "unix-programming",
+        "reference": "第 1 章，Rule of Separation"
+      },
+      "originalName": "Rule of Separation（分离原则）",
+      "check": "检查通用发送、调度或存储模块里是否出现特定客户、套餐或业务状态分支。",
+      "why": "修改一种业务政策会影响共享机制，其他业务也需要重新验证；新的使用方还可能被迫复制执行代码。",
+      "fix": "在业务入口决定政策，再把结果或窄接口传给执行机制，让机制只实现约定的操作。",
+      "badExample": "function send(message: Message, customer: Customer) {\n  const retries = customer.plan === \"premium\" ? 5 : 1;\n  return transport(message, retries);\n}",
+      "goodExample": "function send(message: Message, retries: number) {\n  return transport(message, retries);\n}\nconst retries = deliveryPolicy.retryCount(customer);\nsend(message, retries);",
+      "exampleLanguage": "typescript",
+      "summary": "通用执行机制混入具体业务决定 → 按 Rule of Separation 在业务入口决定政策，再交给机制执行",
+      "judgement": true
+    }
+  ],
+  "judgement": false
+}

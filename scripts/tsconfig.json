@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true, "types": ["node"] },
+  "include": ["verify-rule-library.ts", "verify-rule-library.test.ts", "verify-staging-records.ts", "verify-staging-records.test.ts"]
+}

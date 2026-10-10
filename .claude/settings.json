@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "mattpocock-skills-cospowers@mattpocock": true,
+    "mattpocock-skills@mattpocock": true,
+    "html-plan@claude-community": true
+  }
+}

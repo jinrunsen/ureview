@@ -1,0 +1,18 @@
+# 统一缩进与换行。没有这个文件，不同编辑器会在同一份文件里混进不同的
+# 缩进和行尾，diff 里全是噪声。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+# markdown 里行尾两个空格是换行语义，不能裁
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab

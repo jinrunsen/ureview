@@ -1,0 +1,17 @@
+.service-model-card { min-width: 0; padding: 20px; margin: 0; border: 1px solid var(--border); border-radius: 9px; }
+.service-model-card h3 { margin: 0 0 20px; }
+.service-model-card > label { margin-top: 16px; }
+.service-model-key { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.service-model-key input { flex: 1; font-family: "SFMono-Regular", Consolas, monospace; }
+.service-model-key button { flex-shrink: 0; color: var(--accent); }
+.service-model-replace { margin-top: 6px; color: var(--accent); font-size: 12px; }
+.service-model-verify { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 18px; }
+.service-model-verify .field-hint { flex: 1 1 240px; margin: 0; }
+.service-model-result { margin: 12px 0 0; }
+.service-model-result.is-success { border-color: #cce4d9; background: var(--accent-soft); color: #246c58; }
+.service-model-result small { display: block; margin-top: 3px; color: var(--muted); }
+.service-settings-users { overflow-x: auto; }
+@media (max-width: 600px) {
+  .service-settings-form { padding: 12px 0; }
+  .service-model-card { padding: 16px 12px; }
+}
